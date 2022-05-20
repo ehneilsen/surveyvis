@@ -36,6 +36,6 @@ def read_conditions(file_name):
     """
 
     with open(file_name, "rb") as pio:
-        scheduler, _ = pickle.load(pio)
+        _, conditions = pickle.load(pio)
         
-    return scheduler
+    return conditions

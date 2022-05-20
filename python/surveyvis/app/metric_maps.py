@@ -1,0 +1,64 @@
+import os
+import bokeh.plotting
+import astropy.units as u
+from astropy.coordinates import SkyCoord
+
+from rubin_sim import maf
+
+from surveyvis.plot.SphereMap import (
+    ArmillarySphere,
+    Planisphere,
+    MollweideMap
+)
+from ..collect.stars import load_bright_stars
+
+def make_metric_figure(metric_values_fname=None, nside=8):
+    if metric_values_fname is None:
+        metric_values_fname = os.environ['METRIC_FNAME']
+
+    healpy_values = maf.MetricBundle.load(metric_values_fname).metricValues
+
+    star_data = load_bright_stars().loc[:, ["name", "ra", "decl", "Vmag"]]
+    star_data["glyph_size"] = 15 - (15.0 / 3.5) * star_data["Vmag"]
+    star_data.query("glyph_size>0", inplace=True)
+
+    arm = ArmillarySphere()
+    hp_ds, cmap, _ = arm.add_healpix(healpy_values, nside=nside)
+    hz = arm.add_horizon()
+    zd70 = arm.add_horizon(zd=70, line_kwargs={"color": "red", "line_width": 2})
+    star_ds = arm.add_stars(star_data, mag_limit_slider=True, star_kwargs={"color": "black"})
+    arm.decorate()
+    
+    pla = Planisphere()
+    pla.add_healpix(hp_ds, cmap=cmap, nside=nside)
+    pla.add_horizon(data_source=hz)
+    pla.add_horizon(zd=60, data_source=zd70, line_kwargs={"color": "red", "line_width": 2})
+    pla.add_stars(star_data, data_source=star_ds, mag_limit_slider=False, star_kwargs={"color": "black"})
+    pla.decorate()
+    
+    mol_plot = bokeh.plotting.figure(
+                plot_width=512, plot_height=256, match_aspect=True
+            )
+    mol = MollweideMap(plot=mol_plot)
+    mol.add_healpix(hp_ds, cmap=cmap, nside=nside)
+    mol.add_horizon(data_source=hz)
+    mol.add_horizon(zd=70, data_source=zd70, line_kwargs={"color": "red", "line_width": 2})
+    mol.add_stars(star_data, data_source=star_ds, mag_limit_slider=False, star_kwargs={"color": "black"})
+    mol.decorate()
+    
+    figure = bokeh.layouts.row(
+        bokeh.layouts.column(mol.plot, *arm.sliders.values()),
+        arm.plot, 
+        pla.plot
+    )
+    
+    return figure
+
+def add_metric_app(doc):
+    figure = make_metric_figure()
+    doc.add_root(figure)
+
+if __name__.startswith('bokeh_app_'):
+    doc = bokeh.plotting.curdoc()
+    add_metric_app(doc)
+
