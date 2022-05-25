@@ -20,7 +20,8 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
     if scheduler_pickle_fname is None:
         scheduler_pickle_fname = os.environ['SCHED_PICKLE']
 
-    scheduler_healpix_maps = SchedulerState(scheduler_pickle_fname).healpix_map
+    scheduler_state = SchedulerState(scheduler_pickle_fname)
+    scheduler_healpix_maps = scheduler_state.healpix_map
     map_keys = list(scheduler_healpix_maps.keys())
 
     healpy_values = scheduler_healpix_maps[init_key]
@@ -69,6 +70,43 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
     mol.add_horizon(zd=70, data_source=zd70, line_kwargs={"color": "red", "line_width": 2})
     mol.decorate()
     
+    #
+    # Select scheduler to show
+    # 
+    
+    surveys_in_tier = [s.survey_name for s in scheduler_state.sched.survey_lists[0]]
+    survey_selector = bokeh.models.Select(
+        value=surveys_in_tier[0],
+        options=surveys_in_tier
+    )
+    
+    def switch_survey(attrname, old, new):
+        tier = scheduler_state.survey_list_indexes[0]
+        surveys_in_tier = [s.survey_name for s in scheduler_state.sched.survey_lists[tier]]
+        scheduler_state.survey_list_indexes = (tier, surveys_in_tier.index(new))
+        switch_value(None, None, init_key)
+    
+    survey_selector.on_change('value', switch_survey)
+    
+    tier_selector = bokeh.models.Select(
+        value=f'tier 0',
+        options=[f'tier {t}' for t in np.arange(len(scheduler_state.sched.survey_lists))]
+    )
+    
+    def switch_tier(attrname, old, new):
+        new_tier_index = tier_selector.options.index(new)
+        scheduler_state.survey_list_indexes = (new_tier_index, 0)
+        surveys_in_tier = [s.survey_name for s in scheduler_state.sched.survey_lists[new_tier_index]]
+        survey_selector.value = surveys_in_tier[0]
+        survey_selector.options = surveys_in_tier
+        switch_value(None, None, init_key)
+        
+    tier_selector.on_change('value', switch_tier)
+    
+    #
+    # Select which map to show
+    #
+    
     value_selector = bokeh.models.Select(
         value=init_key,
         options=map_keys,
@@ -103,7 +141,7 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
     
     switch_value('value', init_key, init_key)
 
-    controls = list(arm.sliders.values()) + [value_selector]
+    controls = list(arm.sliders.values()) + [tier_selector, survey_selector, value_selector]
     figure = bokeh.layouts.row(
         bokeh.layouts.column(mol.plot, *controls),
         arm.plot, 
