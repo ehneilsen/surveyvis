@@ -90,6 +90,7 @@ class SphereMap:
         # Rearrange the axes to match what is used by hp.vec2ang
         hpix_bounds_vec_long = np.moveaxis(hpix_bounds_vec, 1, 2).reshape((npts, 3))
         ra, decl = hp.vec2ang(hpix_bounds_vec_long, lonlat=True)
+        center_ra, center_decl = hp.pix2ang(nside, hpids, lonlat=True)
 
         xs, ys, zs = self.to_orth_zenith(
             hpix_bounds_vec[:, 0, :],
@@ -144,6 +145,8 @@ class SphereMap:
 
         hpix_corners.replace([np.inf, -np.inf], np.NaN, inplace=True)
         hpix_data = hpix_corners.groupby("hpid").agg(lambda x: x.tolist())
+        hpix_data["center_ra"] = center_ra
+        hpix_data["center_decl"] = center_decl
         hpix_data["value"] = values
 
         values_are_finite = np.isfinite(values)
@@ -155,6 +158,8 @@ class SphereMap:
             {
                 "hpid": finite_hpids,
                 "value": finite_values,
+                "center_ra": finite_hpix_data["center_ra"].tolist(),
+                "center_decl": finite_hpix_data["center_decl"].tolist(),
                 "ra": finite_hpix_data['ra'].tolist(),
                 "decl": finite_hpix_data["decl"].tolist(),
                 "x_hp": finite_hpix_data["x_hp"].tolist(),

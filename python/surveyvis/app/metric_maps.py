@@ -10,7 +10,7 @@ from surveyvis.plot.SphereMap import (
     Planisphere,
     MollweideMap
 )
-from ..collect.stars import load_bright_stars
+from surveyvis.collect.stars import load_bright_stars
 
 def make_metric_figure(metric_values_fname=None, nside=8):
     if metric_values_fname is None:
