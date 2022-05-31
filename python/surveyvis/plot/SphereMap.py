@@ -22,6 +22,7 @@ from surveyvis.sphere import (
 ProjSliders = namedtuple("ProjSliders", ["alt", "az", "lst"])
 
 class SphereMap:
+    alt_limit = 0
     update_js_fname = 'update_map.js'
     max_star_glyph_size = 15
     proj_slider_keys = ['lst']
@@ -81,6 +82,17 @@ class SphereMap:
         z2[orth_invisible] = np.nan
         return x2, y2, z2
 
+    def eq_to_horizon(self, ra, decl, degrees=True, cart=True):
+        alt, az = eq_to_horizon(ra, decl, self.lat, self.lst, degrees=degrees)
+        if cart:
+            x, y = eq_to_horizon(ra, decl, self.lat, self.lst, degrees=degrees, cart=cart)
+            invisible = alt < self.alt_limit
+            x[invisible] = np.nan
+            y[invisible] = np.nan
+            return x, y
+        else:
+            return alt, az
+
     def make_healpix_data_source(self, hpvalues, nside=32, bound_step=1):
         values = hp.ud_grade(hpvalues, nside)
         npix = hp.nside2npix(nside)
@@ -91,6 +103,7 @@ class SphereMap:
         hpix_bounds_vec_long = np.moveaxis(hpix_bounds_vec, 1, 2).reshape((npts, 3))
         ra, decl = hp.vec2ang(hpix_bounds_vec_long, lonlat=True)
         center_ra, center_decl = hp.pix2ang(nside, hpids, lonlat=True)
+        x_hz, y_hz = self.eq_to_horizon(ra, decl)
 
         xs, ys, zs = self.to_orth_zenith(
             hpix_bounds_vec[:, 0, :],
@@ -101,7 +114,7 @@ class SphereMap:
         x_laea, y_laea = self.laea_proj.vec2xy(hpix_bounds_vec_long.T)
         x_moll, y_moll = self.moll_proj.vec2xy(hpix_bounds_vec_long.T)
 
-        # in hpix_bounds, each row corresponds to a healpixes, and columns
+        # in hpix_bounds, each row corresponds to a healpixels, and columns
         # contain lists where elements of the lists correspond to corners.
         hpix_bounds = pd.DataFrame(
             {
@@ -118,6 +131,8 @@ class SphereMap:
                 "y_laea": y_laea.reshape(npix, 4).tolist(),
                 "x_moll": x_moll.reshape(npix, 4).tolist(),
                 "y_moll": y_moll.reshape(npix, 4).tolist(),
+                "x_hz": x_hz.reshape(npix, 4).tolist(),
+                "y_hz": y_hz.reshape(npix, 4).tolist(),
             }
         )
 
@@ -172,6 +187,8 @@ class SphereMap:
                 "y_laea": finite_hpix_data["y_laea"].tolist(),
                 "x_moll": finite_hpix_data["x_moll"].tolist(),
                 "y_moll": finite_hpix_data["y_moll"].tolist(),
+                "x_hz": finite_hpix_data["x_hz"].tolist(),
+                "y_hz": finite_hpix_data["y_hz"].tolist(),
             }
         )
 
@@ -192,6 +209,8 @@ class SphereMap:
                 "y_laea": [np.nan],
                 "x_moll": [np.nan],
                 "y_moll": [np.nan],
+                'x_hz': [np.nan],
+                'y_hz': [np.nan],
             }
         )
         graticule_list = []
@@ -213,7 +232,9 @@ class SphereMap:
                     "y_laea": np.nan,
                     "x_moll": np.nan,
                     "y_moll": np.nan,
-                }
+                    "x_hz": np.nan,
+                    "y_hz": np.nan,
+                    }
             )
             this_graticule.loc[:, ["x_hp", "y_hp", "z_hp"]] = hp.ang2vec(
                 this_graticule.ra, this_graticule.decl, lonlat=True
@@ -238,6 +259,10 @@ class SphereMap:
             )
             this_graticule.loc[:, "x_moll"] = x_moll
             this_graticule.loc[:, "y_moll"] = y_moll
+            
+            x_hz, y_hz = self.eq_to_horizon(this_graticule["ra"], this_graticule["decl"])
+            this_graticule.loc[:, "x_hz"] = x_hz
+            this_graticule.loc[:, "y_hz"] = y_hz
 
             graticule_list.append(this_graticule)
             graticule_list.append(stop_df)
@@ -259,6 +284,8 @@ class SphereMap:
                     "y_laea": np.nan,
                     "x_moll": np.nan,
                     "y_moll": np.nan,
+                    "x_hz": np.nan,
+                    "y_hz": np.nan,
                 }
             )
             this_graticule.loc[:, ["x_hp", "y_hp", "z_hp"]] = hp.ang2vec(
@@ -284,6 +311,10 @@ class SphereMap:
             )
             this_graticule.loc[:, "x_moll"] = x_moll
             this_graticule.loc[:, "y_moll"] = y_moll
+
+            x_hz, y_hz = self.eq_to_horizon(this_graticule["ra"], this_graticule["decl"])
+            this_graticule.loc[:, "x_hz"] = x_hz
+            this_graticule.loc[:, "y_hz"] = y_hz
 
             graticule_list.append(this_graticule)
             graticule_list.append(stop_df)
@@ -319,6 +350,7 @@ class SphereMap:
 
         x_laea, y_laea = self.laea_proj.ang2xy(np.array(ras), np.array(decls), lonlat=True)
         x_moll, y_moll = self.moll_proj.ang2xy(np.array(ras), np.array(decls), lonlat=True)
+        x_hz, y_hz = self.eq_to_horizon(np.array(ras), np.array(decls))
 
         # Hide invisible parts
         orth_invisible = zs > 0
@@ -333,7 +365,6 @@ class SphereMap:
             laea_discont = np.array(decls) < self.laea_limit
         x_laea[laea_discont] = np.nan
         y_laea[laea_discont] = np.nan
-
 
         moll_discont = np.abs(np.array(ras) - 180) < step
         x_moll[moll_discont] = np.nan
@@ -354,6 +385,8 @@ class SphereMap:
                 "y_laea": y_laea.tolist(),
                 "x_moll": x_moll.tolist(),
                 "y_moll": y_moll.tolist(),
+                "x_hz": x_hz.tolist(),
+                "y_hz": y_hz.tolist(),
             }
         )
 
@@ -368,7 +401,9 @@ class SphereMap:
         )
         ra = np.array(eq_circle_points.data["ra"])
         decl = np.array(eq_circle_points.data["decl"])
-        alt, az = eq_to_horizon(ra, decl, lat, lst, degrees=True)
+        self.lat = lat
+        self.lst = lst
+        alt, az = self.eq_to_horizon(ra, decl, degrees=True, cart=False)
 
         circle_data = dict(eq_circle_points.data)
         circle_data["alt"] = alt.tolist()
@@ -385,6 +420,7 @@ class SphereMap:
 
         x_laea, y_laea = self.laea_proj.ang2xy(points_df.ra, points_df.decl, lonlat=True)
         x_moll, y_moll = self.moll_proj.ang2xy(points_df.ra, points_df.decl, lonlat=True)
+        x_hz, y_hz = eq_to_horizon(points_df.ra.values, points_df.decl.values, self.lat, self.lst, degrees=True, cart=True)
 
         # If point_df.ra and points_df.decl have only one value, ang2xy returns scalars (or 0d arrays)
         # not 1d arrays, but bokeh.models.ColumnDataSource requires that column values
@@ -394,12 +430,19 @@ class SphereMap:
         y_laea = y_laea.reshape(y_laea.size)
         x_moll = x_moll.reshape(x_moll.size)
         y_moll = y_moll.reshape(y_moll.size)
+        x_hz = x_hz.reshape(x_hz.size)
+        y_hz = y_hz.reshape(y_hz.size)
 
         # Hide invisible parts
         invisible = zs > 0
         xs[invisible] = np.nan
         ys[invisible] = np.nan
         zs[invisible] = np.nan
+        
+        alt, az = eq_to_horizon(points_df.ra, points_df.decl, self.lat, self.lst, degrees=True, cart=False)
+        invisible = alt < 0
+        x_hz[invisible] = np.nan
+        y_hz[invisible] = np.nan
 
         points = bokeh.models.ColumnDataSource(
             data={
@@ -416,6 +459,8 @@ class SphereMap:
                 "y_laea": y_laea.tolist(),
                 "x_moll": x_moll.tolist(),
                 "y_moll": y_moll.tolist(),
+                "x_hz": x_hz.tolist(),
+                "y_hz": y_hz.tolist(),
                 "glyph_size": points_df.glyph_size.tolist(),
             }
         )
@@ -622,6 +667,11 @@ class MollweideMap(SphereMap):
     x_col = "x_moll"
     y_col = "y_moll"
     default_title = "Mollweide"
+
+class HorizonMap(SphereMap):
+    x_col = "x_hz"
+    y_col = "y_hz"
+    default_title = "Horizon"
 
 
 class ArmillarySphere(SphereMap):

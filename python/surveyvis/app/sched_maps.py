@@ -10,6 +10,7 @@ from rubin_sim import maf
 
 from surveyvis.plot.SphereMap import (
     ArmillarySphere,
+    HorizonMap,
     Planisphere,
     MollweideMap
 )
@@ -61,6 +62,19 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
     pla.add_horizon(zd=70, data_source=zd70, line_kwargs={"color": "red", "line_width": 2})
     pla.decorate()
     
+    altaz_plot = bokeh.plotting.figure(
+        plot_width=512,
+        plot_height=512,
+        tooltips=tooltips,
+        match_aspect=True,
+        title="Horizon",
+    )
+    altaz = HorizonMap(plot=altaz_plot)
+    aa_hp_ds, aa_cmap, aa_hp_glyph = altaz.add_healpix(hp_ds, cmap=cmap, nside=nside)
+    altaz.add_horizon()
+    altaz.add_horizon(zd=70, line_kwargs={"color": "red", "line_width": 2})
+    altaz.decorate()
+
     mol_plot = bokeh.plotting.figure(
                 plot_width=512, plot_height=256, tooltips=tooltips, match_aspect=True
             )
@@ -84,7 +98,7 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
         tier = scheduler_state.survey_list_indexes[0]
         surveys_in_tier = [s.survey_name for s in scheduler_state.sched.survey_lists[tier]]
         scheduler_state.survey_list_indexes = (tier, surveys_in_tier.index(new))
-        switch_value(None, None, init_key)
+        value_selector.value = init_key
     
     survey_selector.on_change('value', switch_survey)
     
@@ -99,7 +113,6 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
         surveys_in_tier = [s.survey_name for s in scheduler_state.sched.survey_lists[new_tier_index]]
         survey_selector.value = surveys_in_tier[0]
         survey_selector.options = surveys_in_tier
-        switch_value(None, None, init_key)
         
     tier_selector.on_change('value', switch_tier)
     
@@ -144,7 +157,8 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
     controls = list(arm.sliders.values()) + [tier_selector, survey_selector, value_selector]
     figure = bokeh.layouts.row(
         bokeh.layouts.column(mol.plot, *controls),
-        arm.plot, 
+        arm.plot,
+        altaz.plot, 
         pla.plot
     )
     

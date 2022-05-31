@@ -4,20 +4,27 @@ from collections import OrderedDict
 import numpy as np
 
 class SchedulerState:
-    def __init__(self, fname):
+    def __init__(self, input):
         self.scheds = {}
         self.conds = {}
         mjd_start_list = []
-        with open(fname, "rb") as pio:
+        
+        def load_from_io(pio):
             while True:
                 try:
                     sched, cond = pickle.load(pio)
                     mjd_start = cond.mjd_start
                     mjd_start_list.append(mjd_start)
                     self.scheds[mjd_start] = sched
-                    self.conds[mjd_start] = cond
+                    self.conds[mjd_start] = cond 
                 except EOFError:
                     break
+        
+        if hasattr(input, 'read'):
+            load_from_io(input)    
+        else:
+            with open(input, "rb") as pio:
+                load_from_io(pio)
 
         self.mjd_starts = np.sort(np.array(mjd_start_list))
         self._mjd = self.mjd_starts[0]

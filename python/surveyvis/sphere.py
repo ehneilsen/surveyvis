@@ -105,7 +105,7 @@ def horizon_to_eq(lat, alt, az, lst, degrees=False):
     return ra, decl
 
 
-def eq_to_horizon(ra, decl, lat, lst, degrees=False):
+def eq_to_horizon(ra, decl, lat, lst, degrees=False, cart=False):
     """Convert equatorial coordinates to horizon coordinates.
 
     Parameters
@@ -120,6 +120,8 @@ def eq_to_horizon(ra, decl, lat, lst, degrees=False):
         Local Sidereal Time
     degrees : `bool`, optional
         Unites are in degrees?, by default False
+    cart : `bool`, optional
+        return cartesian coordinates (x, y) rather than alt, az
 
     Returns
     -------
@@ -142,6 +144,12 @@ def eq_to_horizon(ra, decl, lat, lst, degrees=False):
         -1 * np.cos(decl) * np.cos(lat) * np.sin(ha),
         np.sin(decl) - np.sin(lat) * np.sin(alt),
     )
+
+    if cart:
+        zd = np.pi/2 - alt
+        x = zd*np.sin(az)
+        y = -1*zd*np.cos(az)
+        return x, y
 
     if degrees:
         alt = np.degrees(alt)

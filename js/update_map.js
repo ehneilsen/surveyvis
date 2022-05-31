@@ -55,6 +55,34 @@ function horizonToEq(lat, alt, az, lst) {
     return coords
 }
 
+function eqToHorizon(ra, decl, lat, lst) {
+    const ha = lst - ra
+    const alt = Math.asin(
+        Math.sin(decl)*Math.sin(lat) + Math.cos(decl)*Math.cos(lat)*Math.cos(ha)
+    )
+    const az = Math.atan2(
+        -1*Math.cos(decl)*Math.cos(lat)*Math.sin(ha),
+        Math.sin(decl) - Math.sin(lat)*Math.sin(alt)
+    )
+    const coords = [alt, az]
+    return coords
+}
+
+function eqToHorizonCart(ra, decl, lat, lst) {
+    const horizon = eqToHorizon(ra, decl, lat, lst)
+    const alt = horizon[0]
+    const az = horizon[1]
+    const zd = Math.PI/2 - alt
+    const x = zd*Math.sin(az)
+    const y = -1*zd*Math.cos(az)
+    let coords = [x, y]
+    if ((x**2 + y**2)>((Math.PI/2)**2)) {
+        coords[0] = NaN
+        coords[1] = NaN
+    }
+    return coords 
+}
+
 function eqToCart(ra, decl) {
     const theta = Math.PI/2 - decl
     const phi = ra
@@ -200,6 +228,11 @@ for (let i = 0; i < data['x_hp'].length; i++) {
             data['x_moll'][i] = moll[0]
             data['y_moll'][i] = moll[1]
         }
+        if ('x_hz' in data) {
+            const horizonCart = eqToHorizonCart(data['ra'][i]*Math.PI/180, data['decl'][i]*Math.PI/180, lat, lst)
+            data['x_hz'][i] = horizonCart[0]
+            data['y_hz'][i] = horizonCart[1] 
+        }
     } else {
         for (let j = 0; j < data['x_hp'][i].length; j++) {
             if ('alt' in data) {
@@ -228,6 +261,11 @@ for (let i = 0; i < data['x_hp'].length; i++) {
                 const moll = eqToMollweide(data['ra'][i][j]*Math.PI/180, data['decl'][i][j]*Math.PI/180, true)
                 data['x_moll'][i][j] = moll[0]
                 data['y_moll'][i][j] = moll[1]
+            }
+            if ('x_hz' in data) {
+                const horizonCart = eqToHorizonCart(data['ra'][i][j]*Math.PI/180, data['decl'][i][j]*Math.PI/180, lat, lst)
+                data['x_hz'][i][j] = horizonCart[0]
+                data['y_hz'][i][j] = horizonCart[1] 
             }
         }
     }
