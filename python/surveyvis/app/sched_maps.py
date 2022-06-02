@@ -1,14 +1,6 @@
-import os
 import bokeh.plotting
-import astropy.units as u
-from astropy.coordinates import SkyCoord
+from copy import deepcopy
 import numpy as np
-import pandas as pd
-import healpy as hp
-from astropy.time import Time
-from astropy.coordinates import EarthLocation
-
-from rubin_sim import maf
 
 from surveyvis.plot.SphereMap import (
     ArmillarySphere,
@@ -17,16 +9,23 @@ from surveyvis.plot.SphereMap import (
     MollweideMap
 )
 
-from surveyvis.collect.SchedulerState import SchedulerState
+from surveyvis.collect import read_scheduler, read_conditions
+from surveyvis.munge.scheduler import monkeypatch_scheduler
 
-SITE = EarthLocation.of_site("Cerro Pachon")
+def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', nside=32):
 
-def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', nside=16):
-    if scheduler_pickle_fname is None:
-        scheduler_pickle_fname = os.environ['SCHED_PICKLE']
+    scheduler = read_scheduler(scheduler_pickle_fname)
+    conditions = read_conditions(scheduler_pickle_fname)
+    scheduler = monkeypatch_scheduler(scheduler)
 
-    scheduler_state = SchedulerState(scheduler_pickle_fname)
-    scheduler_healpix_maps = scheduler_state.healpix_map
+    survey_index = deepcopy(scheduler.survey_index)
+    
+    if survey_index[0] is None:
+        survey_index = [0, 0]
+    if survey_index[1] is None:
+        survey_index[1] = 0
+    
+    scheduler_healpix_maps = scheduler.get_healpix_maps(survey_index=survey_index, conditions=conditions)
     map_keys = list(scheduler_healpix_maps.keys())
 
     healpy_values = scheduler_healpix_maps[init_key]
@@ -40,7 +39,7 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
         ("Zenith shadow mask", "@Zenith_shadow_mask_basis_function"),
     ]
 
-    lst = Time(scheduler_state.mjd, format='mjd', location=SITE).sidereal_time('apparent').deg
+    lst = conditions.lmst*360/24
 
     arm_plot = bokeh.plotting.figure(
         plot_width=512,
@@ -94,29 +93,38 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
     # Select scheduler to show
     # 
     
-    surveys_in_tier = [s.survey_name for s in scheduler_state.sched.survey_lists[0]]
+    surveys_in_tier = [s.survey_name for s in scheduler.survey_lists[survey_index[0]]]
     survey_selector = bokeh.models.Select(
-        value=surveys_in_tier[0],
+        value=surveys_in_tier[survey_index[0]],
         options=surveys_in_tier
     )
     
     def switch_survey(attrname, old, new):
-        tier = scheduler_state.survey_list_indexes[0]
-        surveys_in_tier = [s.survey_name for s in scheduler_state.sched.survey_lists[tier]]
-        scheduler_state.survey_list_indexes = (tier, surveys_in_tier.index(new))
+        # Be user we keep using teh same survey_index list, and just update it,
+        # not create a new one, because any new one we make won't propogate
+        # into other callbacks.
+        tier = survey_index[0]
+        surveys_in_tier = [s.survey_name for s in scheduler.survey_lists[tier]]
+        survey_index[1] = surveys_in_tier.index(new)
+
+        # Be sure we keep using the same dictionary, and just update it,
+        # rather than use a new one because any new one we make won't propogate
+        # into other callbacks.
+        scheduler_healpix_maps.clear()
+        scheduler_healpix_maps.update(scheduler.get_healpix_maps(survey_index=survey_index, conditions=conditions))
         value_selector.value = init_key
     
     survey_selector.on_change('value', switch_survey)
     
     tier_selector = bokeh.models.Select(
         value=f'tier 0',
-        options=[f'tier {t}' for t in np.arange(len(scheduler_state.sched.survey_lists))]
+        options=[f'tier {t}' for t in np.arange(len(scheduler.survey_lists))]
     )
     
     def switch_tier(attrname, old, new):
-        new_tier_index = tier_selector.options.index(new)
-        scheduler_state.survey_list_indexes = (new_tier_index, 0)
-        surveys_in_tier = [s.survey_name for s in scheduler_state.sched.survey_lists[new_tier_index]]
+        survey_index[0] = tier_selector.options.index(new)
+        survey_index[1] = 0
+        surveys_in_tier = [s.survey_name for s in scheduler.survey_lists[survey_index[0]]]
         survey_selector.value = surveys_in_tier[0]
         survey_selector.options = surveys_in_tier
         

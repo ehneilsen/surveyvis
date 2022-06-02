@@ -1,8 +1,11 @@
 import pickle
+import os
 
-__all__ = ["read_scheduler"]
+__all__ = ["read_scheduler", "read_conditions"]
 
-def read_scheduler(file_name):
+PICKLE_FNAME = os.environ['SCHED_PICKLE']
+
+def read_scheduler(file_name=None):
     """Read an instance of a scheduler object from a pickle.
     
     Parameters
@@ -15,13 +18,15 @@ def read_scheduler(file_name):
     scheduler : `rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler`
         An instance of a rubin_sim scheduler object.
     """
+    if file_name is None:
+        file_name = PICKLE_FNAME
 
     with open(file_name, "rb") as pio:
         scheduler, _ = pickle.load(pio)
         
     return scheduler
 
-def read_conditions(file_name):
+def read_conditions(file_name=None):
     """Read an instance of a conditions object from a pickle.
     
     Parameters
@@ -34,6 +39,8 @@ def read_conditions(file_name):
     conditions : `rubin_sim.scheduler.features.conditions.Conditions`
         An instance of a rubin_sim conditions object.
     """
+    if file_name is None:
+        file_name = PICKLE_FNAME
 
     with open(file_name, "rb") as pio:
         _, conditions = pickle.load(pio)
