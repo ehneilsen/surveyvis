@@ -5,6 +5,8 @@ from astropy.coordinates import SkyCoord
 import numpy as np
 import pandas as pd
 import healpy as hp
+from astropy.time import Time
+from astropy.coordinates import EarthLocation
 
 from rubin_sim import maf
 
@@ -16,6 +18,8 @@ from surveyvis.plot.SphereMap import (
 )
 
 from surveyvis.collect.SchedulerState import SchedulerState
+
+SITE = EarthLocation.of_site("Cerro Pachon")
 
 def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', nside=16):
     if scheduler_pickle_fname is None:
@@ -36,6 +40,8 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
         ("Zenith shadow mask", "@Zenith_shadow_mask_basis_function"),
     ]
 
+    lst = Time(scheduler_state.mjd, format='mjd', location=SITE).sidereal_time('apparent').deg
+
     arm_plot = bokeh.plotting.figure(
         plot_width=512,
         plot_height=512,
@@ -43,7 +49,7 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
         match_aspect=True,
         title="Armillary sphere",
     )
-    arm = ArmillarySphere(plot=arm_plot)
+    arm = ArmillarySphere(plot=arm_plot, lst=lst)
     hp_ds, cmap, arm_hp_glyph = arm.add_healpix(healpy_values, nside=nside)
     hz = arm.add_horizon()
     zd70 = arm.add_horizon(zd=70, line_kwargs={"color": "red", "line_width": 2})
@@ -54,9 +60,9 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
         plot_height=512,
         tooltips=tooltips,
         match_aspect=True,
-        title="Planisphere sphere",
+        title="Planisphere",
     )
-    pla = Planisphere(plot=pla_plot)
+    pla = Planisphere(plot=pla_plot, lst=lst)
     pla_hp_ds, pla_cmap, pla_hp_glyph = pla.add_healpix(hp_ds, cmap=cmap, nside=nside)
     pla.add_horizon(data_source=hz)
     pla.add_horizon(zd=70, data_source=zd70, line_kwargs={"color": "red", "line_width": 2})
@@ -69,16 +75,16 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
         match_aspect=True,
         title="Horizon",
     )
-    altaz = HorizonMap(plot=altaz_plot)
+    altaz = HorizonMap(plot=altaz_plot, lst=lst)
     aa_hp_ds, aa_cmap, aa_hp_glyph = altaz.add_healpix(hp_ds, cmap=cmap, nside=nside)
-    altaz.add_horizon()
+    # altaz.add_horizon()
     altaz.add_horizon(zd=70, line_kwargs={"color": "red", "line_width": 2})
-    altaz.decorate()
+    # altaz.decorate()
 
     mol_plot = bokeh.plotting.figure(
                 plot_width=512, plot_height=256, tooltips=tooltips, match_aspect=True
             )
-    mol = MollweideMap(plot=mol_plot)
+    mol = MollweideMap(plot=mol_plot, lst=lst)
     mol_hp_ds, mol_cmap, mol_hp_glyph = mol.add_healpix(hp_ds, cmap=cmap, nside=nside)
     mol.add_horizon(data_source=hz)
     mol.add_horizon(zd=70, data_source=zd70, line_kwargs={"color": "red", "line_width": 2})
@@ -155,12 +161,23 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
     switch_value('value', init_key, init_key)
 
     controls = list(arm.sliders.values()) + [tier_selector, survey_selector, value_selector]
-    figure = bokeh.layouts.row(
-        bokeh.layouts.column(mol.plot, *controls),
-        arm.plot,
-        altaz.plot, 
-        pla.plot
-    )
+    if False:
+        figure = bokeh.layouts.row(
+            bokeh.layouts.column(mol.plot, *controls),
+            arm.plot,
+            altaz.plot, 
+            pla.plot
+        )
+    else:
+        row1 = bokeh.layouts.row(
+            bokeh.layouts.column(mol.plot, *controls),
+            arm.plot,
+        )
+        row2 = bokeh.layouts.row(
+            altaz.plot, 
+            pla.plot
+        )
+        figure = bokeh.layouts.column(row1, row2)
     
     return figure
 

@@ -668,55 +668,7 @@ class MollweideMap(SphereMap):
     y_col = "y_moll"
     default_title = "Mollweide"
 
-class HorizonMap(SphereMap):
-    x_col = "x_hz"
-    y_col = "y_hz"
-    default_title = "Horizon"
-
-
-class ArmillarySphere(SphereMap):
-    x_col = "x_orth"
-    y_col = "y_orth"
-    proj_slider_keys = ['alt', 'az', 'lst']
-    default_title = "Armillary Sphere"
-
-    def add_sliders(self, center_alt=90, center_az=0):
-        super().add_sliders()
-        self.sliders["alt"] = bokeh.models.Slider(
-            start=-90,
-            end=90,
-            value=center_alt,
-            step=np.pi / 180,
-            title="center alt",
-        )
-        self.sliders["az"] = bokeh.models.Slider(
-            start=-90, end=360, value=center_az, step=np.pi / 180, title="center Az"
-        )
-        self.sliders["lst"] = bokeh.models.Slider(
-            start=-12, end=36, value=self.lst * 24/360, step=np.pi / 180, title="LST"
-        )
-
-        self.figure = bokeh.layouts.column(
-            self.plot, self.sliders['alt'], self.sliders['az'], self.sliders['lst']
-        )
-
-    def set_js_update_func(self, data_source):
-        update_func = bokeh.models.CustomJS(
-            args=dict(
-                data_source=data_source,
-                center_alt_slider=self.sliders['alt'],
-                center_az_slider=self.sliders['az'],
-                lst_slider=self.sliders['lst'],
-                lat=self.lat,
-            ),
-            code=self.update_js,
-        )
-
-        for proj_slider_key in self.proj_slider_keys:
-            try:
-                self.sliders[proj_slider_key].js_on_change("value", update_func)
-            except KeyError:
-                pass
+class MovingSphereMap(SphereMap):
 
     def add_healpix(self, data, cmap=None, nside=16, bound_step=1):
         data_source, cmap, hp_glyph = super().add_healpix(data, cmap, nside, bound_step)
@@ -741,4 +693,83 @@ class ArmillarySphere(SphereMap):
     def add_marker(self, ra=None, decl=None, name='anonymous', glyph_size=5, data_source=None, circle_kwargs={}):
         data_source = super().add_marker(ra, decl, name, glyph_size, data_source, circle_kwargs)
         self.set_js_update_func(data_source)
-        return data_source   
+        return data_source     
+
+class HorizonMap(MovingSphereMap):
+    x_col = "x_hz"
+    y_col = "y_hz"
+    proj_slider_keys = ['lst']
+    default_title = "Horizon"
+
+    def set_js_update_func(self, data_source):
+        update_func = bokeh.models.CustomJS(
+            args=dict(
+                data_source=data_source,
+                lst_slider=self.sliders['lst'],
+                lat=self.lat,
+            ),
+            code=self.update_js,
+        )
+
+        for proj_slider_key in self.proj_slider_keys:
+            try:
+                self.sliders[proj_slider_key].js_on_change("value", update_func)
+            except KeyError:
+                pass
+
+    def add_sliders(self, center_alt=90, center_az=0):
+        super().add_sliders()
+        self.sliders["lst"] = bokeh.models.Slider(
+            start=-12, end=36, value=self.lst * 24/360, step=np.pi / 180, title="LST"
+        )
+
+        self.figure = bokeh.layouts.column(
+            self.plot, self.sliders['lst']
+        )
+
+
+class ArmillarySphere(MovingSphereMap):
+    x_col = "x_orth"
+    y_col = "y_orth"
+    proj_slider_keys = ['alt', 'az', 'lst']
+    default_title = "Armillary Sphere"
+
+    def set_js_update_func(self, data_source):
+        update_func = bokeh.models.CustomJS(
+            args=dict(
+                data_source=data_source,
+                center_alt_slider=self.sliders['alt'],
+                center_az_slider=self.sliders['az'],
+                lst_slider=self.sliders['lst'],
+                lat=self.lat,
+            ),
+            code=self.update_js,
+        )
+
+        for proj_slider_key in self.proj_slider_keys:
+            try:
+                self.sliders[proj_slider_key].js_on_change("value", update_func)
+            except KeyError:
+                pass
+
+
+    def add_sliders(self, center_alt=90, center_az=0):
+        super().add_sliders()
+        self.sliders["alt"] = bokeh.models.Slider(
+            start=-90,
+            end=90,
+            value=center_alt,
+            step=np.pi / 180,
+            title="center alt",
+        )
+        self.sliders["az"] = bokeh.models.Slider(
+            start=-90, end=360, value=center_az, step=np.pi / 180, title="center Az"
+        )
+        self.sliders["lst"] = bokeh.models.Slider(
+            start=-12, end=36, value=self.lst * 24/360, step=np.pi / 180, title="LST"
+        )
+
+        self.figure = bokeh.layouts.column(
+            self.plot, self.sliders['alt'], self.sliders['az'], self.sliders['lst']
+        )
+
