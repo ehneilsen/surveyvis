@@ -12,7 +12,7 @@ from surveyvis.plot.SphereMap import (
 )
 from surveyvis.collect.stars import load_bright_stars
 
-def make_metric_figure(metric_values_fname=None, nside=8):
+def make_metric_figure(metric_values_fname=None, nside=8, mag_limit_slider=True):
     if metric_values_fname is None:
         metric_values_fname = os.environ['METRIC_FNAME']
 
@@ -26,7 +26,7 @@ def make_metric_figure(metric_values_fname=None, nside=8):
     hp_ds, cmap, _ = arm.add_healpix(healpy_values, nside=nside)
     hz = arm.add_horizon()
     zd70 = arm.add_horizon(zd=70, line_kwargs={"color": "red", "line_width": 2})
-    star_ds = arm.add_stars(star_data, mag_limit_slider=True, star_kwargs={"color": "black"})
+    star_ds = arm.add_stars(star_data, mag_limit_slider=mag_limit_slider, star_kwargs={"color": "black"})
     arm.decorate()
     
     pla = Planisphere()
