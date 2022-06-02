@@ -12,10 +12,31 @@ from surveyvis.plot.SphereMap import (
 from surveyvis.collect import read_scheduler, read_conditions
 from surveyvis.munge.scheduler import monkeypatch_scheduler
 
-def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', nside=32):
+def make_scheduler_map_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', nside=16):
+    """Create a set of bekeh figures showing sky maps relevant to scheduler behavior.
+
+    Parameters
+    ----------
+    scheduler_pickle_fname : `str`, optional
+        File from which to load the scheduler state. If set to none, look for the file
+        name in the ``SCHED_PICKLE`` environment variable. By default None
+    init_key : `str`, optional
+        Name of the initial map to show, by default 'AvoidDirectWind'
+    nside : int, optional
+        Healpix nside to use for display, by default 16
+
+    Returns
+    -------
+    fig : `bokeh.models.layouts.LayoutDOM`
+        A bokeh figure that can be displayed in a notebook (e.g. with ``bokeh.io.show``) or used
+        to create a bokeh app.
+    """
 
     scheduler = read_scheduler(scheduler_pickle_fname)
     conditions = read_conditions(scheduler_pickle_fname)
+    
+    # FIXME The pickle used for testing does not include several
+    # required methods of the Scheduler class, so add them.
     scheduler = monkeypatch_scheduler(scheduler)
 
     survey_index = deepcopy(scheduler.survey_index)
@@ -29,6 +50,7 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
     map_keys = list(scheduler_healpix_maps.keys())
 
     healpy_values = scheduler_healpix_maps[init_key]
+    lst = conditions.lmst*360/24
     
     tooltips = [
         ("RA", "@center_ra"),
@@ -38,8 +60,6 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
         ("Moon avoidance", "@Moon_avoidance_basis_function"),
         ("Zenith shadow mask", "@Zenith_shadow_mask_basis_function"),
     ]
-
-    lst = conditions.lmst*360/24
 
     arm_plot = bokeh.plotting.figure(
         plot_width=512,
@@ -90,8 +110,8 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
     mol.decorate()
     
     #
-    # Select scheduler to show
-    # 
+    # Select survey to show
+    #
     
     surveys_in_tier = [s.survey_name for s in scheduler.survey_lists[survey_index[0]]]
     survey_selector = bokeh.models.Select(
@@ -169,31 +189,31 @@ def make_metric_figure(scheduler_pickle_fname=None, init_key='AvoidDirectWind', 
     switch_value('value', init_key, init_key)
 
     controls = list(arm.sliders.values()) + [tier_selector, survey_selector, value_selector]
-    if False:
-        figure = bokeh.layouts.row(
-            bokeh.layouts.column(mol.plot, *controls),
-            arm.plot,
-            altaz.plot, 
-            pla.plot
-        )
-    else:
-        row1 = bokeh.layouts.row(
-            bokeh.layouts.column(mol.plot, *controls),
-            arm.plot,
-        )
-        row2 = bokeh.layouts.row(
-            altaz.plot, 
-            pla.plot
-        )
-        figure = bokeh.layouts.column(row1, row2)
+
+    row1 = bokeh.layouts.row(
+        bokeh.layouts.column(mol.plot, *controls),
+        arm.plot,
+    )
+    row2 = bokeh.layouts.row(
+        altaz.plot, 
+        pla.plot
+    )
+    figure = bokeh.layouts.column(row1, row2)
     
     return figure
 
-def add_metric_app(doc):
-    figure = make_metric_figure()
+def add_scheduler_map_app(doc):
+    """Add a scheduler map figure to a bokeh document
+
+    Parameters
+    ----------
+    doc : `bokeh.document.document.Document`
+        The bokeh document to which to add the figure.
+    """  
+    figure = make_scheduler_map_figure()
     doc.add_root(figure)
 
 if __name__.startswith('bokeh_app_'):
     doc = bokeh.plotting.curdoc()
-    add_metric_app(doc)
+    add_scheduler_map_app(doc)
 

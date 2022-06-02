@@ -163,19 +163,19 @@ def rotate_cart(ux, uy, uz, angle, x0, y0, z0):
     Parameters
     ----------
     ux : `float`
-        Input x coordinate
+        x coordinate of a point on the axis of rotation
     uy : `float`
-        Input y coordinate
+        y coordinate of a point on the axis of rotation
     uz : `float`
-        Input z coordinate
+        z coordinate of a point on the axis of rotation
     angle : `float`
         Magnitude of the rotation.
     x0 : `float`
-        x coordinate of a point on the axis of rotation
+        Input x coordinate
     y0 : `float`
-        y coordinate of a point on the axis of rotation
+        Input y coordinate
     z0 : `float`
-        z coordinate of a point on the axis of rotation
+        Input z coordinate
         
     Returns
     -------

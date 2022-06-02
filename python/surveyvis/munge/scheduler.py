@@ -3,7 +3,39 @@ from collections import OrderedDict
 import rubin_sim
 
 def monkeypatch_scheduler(scheduler):
+    """Add methods to a scheduler object to support display.
+
+    Parameters
+    ----------
+    scheduler : `rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler`
+        An instance of the scheduler to patch.
+        
+    Returns
+    -------
+    scheduler : `rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler`
+        The patched instance of the scheduler. (The same instance provided as an
+        argument.)
+    """
+
     def get_basis_functions(self, survey_index=None, conditions=None):
+        """Get the basis functions for a specific survey, in provided conditions.
+
+        Parameters
+        ----------
+        survey_index : `List` [`int`], optional
+            A list with two elements: the survey list and the element within that
+            survey list for which the basis function should be retrieved. If ``None``,
+            use the latest survey to make an addition to the queue.
+        conditions : `rubin_sim.scheduler.features.conditions.Conditions`, optional
+            The conditions for which to return the basis functions. If ``None``, use
+            the conditions associated with this sceduler. By default None.
+
+        Returns
+        -------
+        basis_funcs : `OrderedDict` ['str`, `rubin_sim.scheduler.basis_functions.basis_functions.Base_basis_function`]
+            A dictionary of the basis functions, where the keys are names for the basis functions and the values
+            are the functions themselves.
+        """        
         if survey_index is None:
             survey_index = self.survey_index
 
@@ -18,6 +50,24 @@ def monkeypatch_scheduler(scheduler):
         return basis_funcs
 
     def get_healpix_maps(self, survey_index=None, conditions=None):
+        """Get the healpix maps for a specific survey, in provided conditions.
+
+        Parameters
+        ----------
+        survey_index : `List` [`int`], optional
+            A list with two elements: the survey list and the element within that
+            survey list for which the maps that should be retrieved. If ``None``,
+            use the latest survey to make an addition to the queue.
+        conditions : `rubin_sim.scheduler.features.conditions.Conditions`, optional
+            The conditions for the maps to be returned. If ``None``, use
+            the conditions associated with this sceduler. By default None.
+
+        Returns
+        -------
+        basis_funcs : `OrderedDict` ['str`, `numpy.ndarray`]
+            A dictionary of the maps, where the keys are names for the maps and
+            values are the numpy arrays as used by ``healpy``.
+        """        
         if survey_index is None:
             survey_index = self.survey_index
 

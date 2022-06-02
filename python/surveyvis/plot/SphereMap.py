@@ -33,6 +33,20 @@ class SphereMap:
     default_horizon_line_kwargs = {"color": "black", "line_width": 6}
 
     def __init__(self, plot=None, lst=0.0, lat=-30.244639, laea_limit_mag=88):
+        """Base for maps of the sphere.
+
+        Parameters
+        ----------
+        plot : `bokeh.plotting.figure.Figure`, optional
+            Figure to which to add the map, by default None
+        lst : `float`, optional
+            Local sidereal time, in degrees, by default 0.0
+        lat : `float`, optional
+            Latitude of the observatory, in degrees, by default -30.244639
+        laea_limit_mag : `float`, optional
+            Magnitude of the limit for Lamber azimuthal equal area plots, in degrees.
+            By default 88.
+        """        
         
         self.lat = lat
         self.lst = lst
@@ -59,28 +73,54 @@ class SphereMap:
 
     @property
     def update_js(self):
+        """Return javascript code to update the plots.
+
+        Returns
+        -------
+        js_code : `str`
+            Javascript code to update the bokeh model.
+        """        
         js_code = read_javascript(self.update_js_fname)
         return js_code
 
     @property
     def laea_rot(self):
+        """Return the `rot` tuple to be used in the Lambert Azimuthal Equal Area projection
+
+        Returns
+        -------
+        rot : `tuple` [`float`]
+            The `rot` tuple to be passed to `healpy.projector.AzimuthalProj`.
+        """        
         rot = (0, -90, 0) if self.lat<0 else (0, 90, 180)
         return rot
 
     @property
     def laea_limit(self):
+        """Return the latitude furthest from the center for the LAEA projection.
+
+        Returns
+        -------
+        `limit` : `float`
+            The maximum (or minimum) value for the latitude shown in the 
+            Lambert Azimuthal Equal Area plot.
+        """        
         limit = self.laea_limit_mag if self.lat<0 else -1*self.laea_limit_mag
         return limit
 
-    def to_orth_zenith(self, hpx, hpy, hpz):
+    def to_orth_zenith(self, hpx, hpy, hpz):        
         x1, y1, z1 = rotate_cart(0, 0, 1, -90, hpx, hpy, hpz)
         x2, y2, z2 = rotate_cart(1, 0, 0, self.lat+90, x1, y1, z1)
           
-        orth_invisible = z2 > 0
+        npole_x1, npole_y1, npole_z1 = rotate_cart(0, 0, 1, -90, 0, 0, 1)
+        npole_x2, npole_y2, npole_z2 = rotate_cart(1, 0, 0, self.lat+90, npole_x1, npole_y1, npole_z1)
+        x3, y3, z3 = rotate_cart(npole_x2, npole_y2, npole_z2, -self.lst, x2, y2, z2)
+        
+        orth_invisible = z3 > 0
         x2[orth_invisible] = np.nan
-        y2[orth_invisible] = np.nan
-        z2[orth_invisible] = np.nan
-        return x2, y2, z2
+        y3[orth_invisible] = np.nan
+        z3[orth_invisible] = np.nan
+        return x3, y3, z3
 
     def eq_to_horizon(self, ra, decl, degrees=True, cart=True):
         alt, az = eq_to_horizon(ra, decl, self.lat, self.lst, degrees=degrees)

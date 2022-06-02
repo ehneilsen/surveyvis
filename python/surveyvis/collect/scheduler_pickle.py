@@ -3,7 +3,10 @@ import os
 
 __all__ = ["read_scheduler", "read_conditions"]
 
-PICKLE_FNAME = os.environ['SCHED_PICKLE']
+try:
+    PICKLE_FNAME = os.environ['SCHED_PICKLE']
+except KeyError:
+    PICKLE_FNAME = None
 
 def read_scheduler(file_name=None):
     """Read an instance of a scheduler object from a pickle.

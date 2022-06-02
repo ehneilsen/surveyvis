@@ -13,6 +13,31 @@ from surveyvis.plot.SphereMap import (
 from surveyvis.collect.stars import load_bright_stars
 
 def make_metric_figure(metric_values_fname=None, nside=8, mag_limit_slider=True):
+    """Create a figure showing multiple projections of a set of a MAF metric.
+
+    Parameters
+    ----------
+    metric_values_fname : `str`, optional
+        Name of file from which to load metric values, as saved by MAF
+        in a saved metric bundle. If it is None, the look for the
+        file name in the ``METRIC_FNAME`` environment varable. By default None
+    nside : `int`, optional
+        Healpix nside to use for display, by default 8
+    mag_limit_slider : `bool`, optional
+        Show the mag limit slider for stars?, by default True
+
+    Returns
+    -------
+    fig : `bokeh.models.layouts.LayoutDOM`
+        A bokeh figure that can be displayed in a notebook (e.g. with ``bokeh.io.show``) or used
+        to create a bokeh app.
+        
+    Notes
+    -----
+    If ``mag_limit_slider`` is ``True``, it creates a magnitude limit slider for the stars.
+    This is implemented as a python callback, and so is only operational in full bokeh app,
+    not standalone output.
+    """    
     if metric_values_fname is None:
         metric_values_fname = os.environ['METRIC_FNAME']
 
