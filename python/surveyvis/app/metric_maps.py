@@ -37,7 +37,8 @@ def make_metric_figure(metric_values_fname=None, nside=8, mag_limit_slider=True)
     If ``mag_limit_slider`` is ``True``, it creates a magnitude limit slider for the stars.
     This is implemented as a python callback, and so is only operational in full bokeh app,
     not standalone output.
-    """    
+    """
+    
     if metric_values_fname is None:
         metric_values_fname = os.environ['METRIC_FNAME']
 
@@ -80,6 +81,13 @@ def make_metric_figure(metric_values_fname=None, nside=8, mag_limit_slider=True)
     return figure
 
 def add_metric_app(doc):
+    """Add a metric figure to a bokeh document
+
+    Parameters
+    ----------
+    doc : `bokeh.document.document.Document`
+        The bokeh document to which to add the figure.
+    """    
     figure = make_metric_figure()
     doc.add_root(figure)
 
