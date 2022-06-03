@@ -25,7 +25,7 @@ function applyRotations(hpx, hpy, hpz, codecl, ra, orient, npoleCoords1) {
     // We are looking out of the sphere from the inside, so the center is 180 degrees 
     // from the front of the sphere, hence the pi.
     const decl_rot = Math.PI + codecl
-    const ra_rot = ra - Math.PI/2
+    const ra_rot = ra - Math.PI / 2
 
     const coords1 = rotateCart(1, 0, 0, decl_rot, hpx, hpy, hpz)
     const coords2 = rotateCart(npoleCoords1[0], npoleCoords1[1], npoleCoords1[2], ra_rot, coords1[0], coords1[1], coords1[2])
@@ -37,7 +37,13 @@ function applyRotations(hpx, hpy, hpz, codecl, ra, orient, npoleCoords1) {
     // so to visible part is when z is negative (coords[2]<=0).
     // So, stuff the points with positive z to NaN so they are
     // not shown, because they are behind the observer.
-    if (coords[2] > 5*Number.EPSILON) {
+
+    // Use 5*Number.EPSILON instead of exactly 0, because the
+    // assorted trig operations result in values slightly above or below
+    // 0 when the horizon is in principle exactly 0, and this gives an
+    // irregularly dotted/dashed appearance to the horizon if 
+    // a cutoff of exactly 0 is used.
+    if (coords[2] > 5 * Number.EPSILON) {
         coords[0] = NaN
         coords[1] = NaN
     }
@@ -45,10 +51,10 @@ function applyRotations(hpx, hpy, hpz, codecl, ra, orient, npoleCoords1) {
 }
 
 function horizonToEq(lat, alt, az, lst) {
-    const decl = Math.asin( Math.sin(alt)*Math.sin(lat) + Math.cos(lat)*Math.cos(alt)*Math.cos(az))
-    const ha = Math.atan2( 
-        -1*Math.cos(alt)*Math.cos(lat)*Math.sin(az),
-        Math.sin(alt) - Math.sin(lat)*Math.sin(decl)
+    const decl = Math.asin(Math.sin(alt) * Math.sin(lat) + Math.cos(lat) * Math.cos(alt) * Math.cos(az))
+    const ha = Math.atan2(
+        -1 * Math.cos(alt) * Math.cos(lat) * Math.sin(az),
+        Math.sin(alt) - Math.sin(lat) * Math.sin(decl)
     )
     const ra = lst - ha
     const coords = [ra, decl]
@@ -58,11 +64,11 @@ function horizonToEq(lat, alt, az, lst) {
 function eqToHorizon(ra, decl, lat, lst) {
     const ha = lst - ra
     const alt = Math.asin(
-        Math.sin(decl)*Math.sin(lat) + Math.cos(decl)*Math.cos(lat)*Math.cos(ha)
+        Math.sin(decl) * Math.sin(lat) + Math.cos(decl) * Math.cos(lat) * Math.cos(ha)
     )
     const az = Math.atan2(
-        -1*Math.cos(decl)*Math.cos(lat)*Math.sin(ha),
-        Math.sin(decl) - Math.sin(lat)*Math.sin(alt)
+        -1 * Math.cos(decl) * Math.cos(lat) * Math.sin(ha),
+        Math.sin(decl) - Math.sin(lat) * Math.sin(alt)
     )
     const coords = [alt, az]
     return coords
@@ -72,22 +78,22 @@ function eqToHorizonCart(ra, decl, lat, lst) {
     const horizon = eqToHorizon(ra, decl, lat, lst)
     const alt = horizon[0]
     const az = horizon[1]
-    const zd = Math.PI/2 - alt
-    const x = zd*Math.sin(az)
-    const y = -1*zd*Math.cos(az)
+    const zd = Math.PI / 2 - alt
+    const x = -1 * zd * Math.sin(az)
+    const y = zd * Math.cos(az)
     let coords = [x, y]
-    if ((x**2 + y**2)>((Math.PI/2)**2)) {
+    if ((x ** 2 + y ** 2) > ((Math.PI / 2) ** 2)) {
         coords[0] = NaN
         coords[1] = NaN
     }
-    return coords 
+    return coords
 }
 
 function eqToCart(ra, decl) {
-    const theta = Math.PI/2 - decl
+    const theta = Math.PI / 2 - decl
     const phi = ra
-    const x = Math.sin(theta)*Math.cos(phi)
-    const y = Math.sin(theta)*Math.sin(phi)
+    const x = Math.sin(theta) * Math.cos(phi)
+    const y = Math.sin(theta) * Math.sin(phi)
     const z = Math.cos(theta)
     return [x, y, z]
 }
@@ -95,22 +101,22 @@ function eqToCart(ra, decl) {
 function cartToEq(x, y, z) {
     const theta = Math.acos(z)
     const ra = Math.atan2(y, x)
-    const decl = Math.PI/2 - theta
+    const decl = Math.PI / 2 - theta
     return [ra, decl]
 }
 
 function eqToLambertAEA(ra, decl, hemisphere, west_right) {
     // Follow notation of Snyder p. 87-88
-    let theta = (west_right === (hemisphere === 'south')) ? -1*ra : ra
-    const phi = (hemisphere === 'south') ? -1*decl : decl
+    let theta = (west_right === (hemisphere === 'south')) ? -1 * ra : ra
+    const phi = (hemisphere === 'south') ? -1 * decl : decl
 
     // Choose an R to match that used by healpy
     const R = 1
 
-    const rho = 2*R*Math.sin((Math.PI/2 - phi)/2)
+    const rho = 2 * R * Math.sin((Math.PI / 2 - phi) / 2)
     let x = rho * Math.sin(theta)
     let y = rho * Math.cos(theta)
-    if (phi > 89.9*Math.PI/180) {
+    if (phi > 89.9 * Math.PI / 180) {
         x = Math.NaN
         y = Math.NaN
     }
@@ -125,7 +131,7 @@ function eqToMollweide(ra, decl, west_right) {
     const wra = (ra + Math.PI) % (2 * Math.PI) - Math.PI
 
     // Return NaNs if near the discontinuity
-    if (Math.abs(ra-Math.PI) < (Math.PI/180)/Math.cos(decl)) {
+    if (Math.abs(ra - Math.PI) < (Math.PI / 180) / Math.cos(decl)) {
         let xy = [Math.NaN, Math.NaN]
         return xy
     }
@@ -139,8 +145,8 @@ function eqToMollweide(ra, decl, west_right) {
     let theta = decl
     let xy = compute_xy(theta)
 
-    for (let iter=1; iter<max_iter; iter++) {
-        if (Math.cos(theta)**2 <= Math.cos(Math.PI / 2)**2) {
+    for (let iter = 1; iter < max_iter; iter++) {
+        if (Math.cos(theta) ** 2 <= Math.cos(Math.PI / 2) ** 2) {
             // We are too close to a pole to refine further
             break
         }
@@ -163,7 +169,7 @@ function eqToMollweide(ra, decl, west_right) {
 }
 
 
-lat = lat * Math.PI/180
+lat = lat * Math.PI / 180
 // const lon = -70.749417 * Math.PI/180 
 
 const data = data_source.data
@@ -177,7 +183,7 @@ const decl = eqCoords[1]
 const codecl = Math.PI / 2 - decl
 const npoleCoords1 = rotateCart(1, 0, 0, codecl, 0, 0, 1)
 
-const hemisphere = (lat > 0) ? 'north': 'south'
+const hemisphere = (lat > 0) ? 'north' : 'south'
 
 /* To get the orientation
    - Get the coordinates of a point we want to be directly "up" from center (slightly higher alt, same az)
@@ -185,12 +191,12 @@ const hemisphere = (lat > 0) ? 'north': 'south'
    - Get the angle of the desired top with the actual top
    - Reverse to get the rotation
    */
-let upAlt = alt + Math.PI/180
+let upAlt = alt + Math.PI / 180
 let upAz = az
 const upEq = horizonToEq(lat, upAlt, upAz, lst)
 const upCart0 = eqToCart(upEq[0], upEq[1])
 const upCart3 = applyRotations(upCart0[0], upCart0[1], upCart0[2], codecl, ra, 0, npoleCoords1)
-const orient = Math.PI/2 - Math.atan2(upCart3[1], upCart3[0])
+const orient = Math.PI / 2 - Math.atan2(upCart3[1], upCart3[0])
 
 for (let i = 0; i < data['x_hp'].length; i++) {
     let x_hp = NaN
@@ -202,9 +208,9 @@ for (let i = 0; i < data['x_hp'].length; i++) {
     // If they are lists, iteratate over each element. Otherwise, just apply the rotation to the point.
     if (typeof (data['x_hp'][i]) === 'number') {
         if ('alt' in data) {
-            pointEq = horizonToEq(lat, data['alt'][i]*Math.PI/180, data['az'][i]*Math.PI/180, lst)
-            data['ra'][i] = pointEq[0]*180/Math.PI
-            data['decl'][i] = pointEq[1]*180/Math.PI
+            pointEq = horizonToEq(lat, data['alt'][i] * Math.PI / 180, data['az'][i] * Math.PI / 180, lst)
+            data['ra'][i] = pointEq[0] * 180 / Math.PI
+            data['decl'][i] = pointEq[1] * 180 / Math.PI
             let cartCoords = eqToCart(pointEq[0], pointEq[1])
             x_hp = cartCoords[0]
             y_hp = cartCoords[1]
@@ -219,26 +225,26 @@ for (let i = 0; i < data['x_hp'].length; i++) {
         data['y_orth'][i] = coords[1]
         data['z_orth'][i] = coords[2]
         if ('x_laea' in data) {
-            const laea = eqToLambertAEA(data['ra'][i]*Math.PI/180, data['decl'][i]*Math.PI/180, hemisphere, true)
+            const laea = eqToLambertAEA(data['ra'][i] * Math.PI / 180, data['decl'][i] * Math.PI / 180, hemisphere, true)
             data['x_laea'][i] = laea[0]
             data['y_laea'][i] = laea[1]
         }
         if ('x_moll' in data) {
-            const moll = eqToMollweide(data['ra'][i]*Math.PI/180, data['decl'][i]*Math.PI/180, true)
+            const moll = eqToMollweide(data['ra'][i] * Math.PI / 180, data['decl'][i] * Math.PI / 180, true)
             data['x_moll'][i] = moll[0]
             data['y_moll'][i] = moll[1]
         }
         if ('x_hz' in data) {
-            const horizonCart = eqToHorizonCart(data['ra'][i]*Math.PI/180, data['decl'][i]*Math.PI/180, lat, lst)
+            const horizonCart = eqToHorizonCart(data['ra'][i] * Math.PI / 180, data['decl'][i] * Math.PI / 180, lat, lst)
             data['x_hz'][i] = horizonCart[0]
-            data['y_hz'][i] = horizonCart[1] 
+            data['y_hz'][i] = horizonCart[1]
         }
     } else {
         for (let j = 0; j < data['x_hp'][i].length; j++) {
             if ('alt' in data) {
-                pointEq = horizonToEq(lat, data['alt'][i][j]*Math.PI/180, data['az'][i][j]*Math.PI/180, lst)
-                data['ra'][i][j] = pointEq[0]*180/Math.PI
-                data['decl'][i][j] = pointEq[1]*180/Math.PI
+                pointEq = horizonToEq(lat, data['alt'][i][j] * Math.PI / 180, data['az'][i][j] * Math.PI / 180, lst)
+                data['ra'][i][j] = pointEq[0] * 180 / Math.PI
+                data['decl'][i][j] = pointEq[1] * 180 / Math.PI
                 let cartCoords = eqToCart(pointEq[0], pointEq[1])
                 x_hp = cartCoords[0]
                 y_hp = cartCoords[1]
@@ -253,19 +259,19 @@ for (let i = 0; i < data['x_hp'].length; i++) {
             data['y_orth'][i][j] = coords[1]
             data['z_orth'][i][j] = coords[2]
             if ('x_laea' in data) {
-                const laea = eqToLambertAEA(data['ra'][i][j]*Math.PI/180, data['decl'][i][j]*Math.PI/180, hemisphere, true)
+                const laea = eqToLambertAEA(data['ra'][i][j] * Math.PI / 180, data['decl'][i][j] * Math.PI / 180, hemisphere, true)
                 data['x_laea'][i][j] = laea[0]
                 data['y_laea'][i][j] = laea[1]
             }
             if ('x_moll' in data) {
-                const moll = eqToMollweide(data['ra'][i][j]*Math.PI/180, data['decl'][i][j]*Math.PI/180, true)
+                const moll = eqToMollweide(data['ra'][i][j] * Math.PI / 180, data['decl'][i][j] * Math.PI / 180, true)
                 data['x_moll'][i][j] = moll[0]
                 data['y_moll'][i][j] = moll[1]
             }
             if ('x_hz' in data) {
-                const horizonCart = eqToHorizonCart(data['ra'][i][j]*Math.PI/180, data['decl'][i][j]*Math.PI/180, lat, lst)
+                const horizonCart = eqToHorizonCart(data['ra'][i][j] * Math.PI / 180, data['decl'][i][j] * Math.PI / 180, lat, lst)
                 data['x_hz'][i][j] = horizonCart[0]
-                data['y_hz'][i][j] = horizonCart[1] 
+                data['y_hz'][i][j] = horizonCart[1]
             }
         }
     }
