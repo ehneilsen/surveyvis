@@ -37,7 +37,7 @@ function applyRotations(hpx, hpy, hpz, codecl, ra, orient, npoleCoords1) {
     // so to visible part is when z is negative (coords[2]<=0).
     // So, stuff the points with positive z to NaN so they are
     // not shown, because they are behind the observer.
-    if (coords[2] > 0) {
+    if (coords[2] > 5*Number.EPSILON) {
         coords[0] = NaN
         coords[1] = NaN
     }
