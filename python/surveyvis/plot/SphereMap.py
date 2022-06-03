@@ -107,6 +107,32 @@ class SphereMap:
         return limit
 
     def to_orth_zenith(self, hpx, hpy, hpz):
+        """Convert healpy vector coordinates to orthographic coordinates
+
+        Parameters
+        ----------
+        hpx : `numpy.ndarray`
+            Healpy vector x coordinates
+            x=1, y=0, z=0 corresponds to R.A.=0 deg, Decl=0 deg.
+            x=-1, y=0, z=0 corresponds to R.A.=180 deg, Decl=0 deg.
+        hpy : `numpy.ndarray`
+            Healpy vector y coordinates
+            x=0, y=1, z=0 corresponds to R.A.=90 deg, Decl=0 deg.
+            x=0, y=-1, z=0 corresponds to R.A.=270 deg, Decl=0 deg.
+        hpz : `numpy.ndarray`
+            Healpy vector z coordinates
+            x=0, y=0, z=1 corresponds to Decl=90 deg.
+            x=0, y=0, z=-1 corresponds to Decl=-90 deg.            
+
+        Returns
+        -------
+        x : `numpy.ndarray`
+            Orthographic x coordinate (positive to the right)
+        y : `numpy.ndarray`
+            Orthographic y coordinate (positive up)
+        z : `numpy.ndarray`
+            Orthographic z coordinate (positive toward the viewer)
+        """        
         x1, y1, z1 = rotate_cart(0, 0, 1, -90, hpx, hpy, hpz)
         x2, y2, z2 = rotate_cart(1, 0, 0, self.lat + 90, x1, y1, z1)
 
@@ -116,10 +142,23 @@ class SphereMap:
         )
         x3, y3, z3 = rotate_cart(npole_x2, npole_y2, npole_z2, -self.lst, x2, y2, z2)
 
-        orth_invisible = z3 > np.finfo(z3[0]).resolution
+        # In astronomy, we are looking out of the sphere from the center to the back
+        # (which naturally results in west to the right).
+        # Positive z is out of the screen behind us, and we are at the center,
+        # so to visible part is when z is negative (coords[2]<=0).
+        # So, stuff the points with positive z to NaN so they are
+        # not shown, because they are behind the observer.
+
+        # Use np.finfo(z3[0]).resolution instead of exactly 0, because the
+        # assorted trig operations result in values slightly above or below
+        # 0 when the horizon is in principle exactly 0, and this gives an
+        # irregularly dotted/dashed appearance to the horizon if 
+        # a cutoff of exactly 0 is used.
+        orth_invisible = z3 > np.finfo(z3.dtype).resolution
         x3[orth_invisible] = np.nan
         y3[orth_invisible] = np.nan
         z3[orth_invisible] = np.nan
+
         return x3, y3, z3
 
     def eq_to_horizon(self, ra, decl, degrees=True, cart=True):

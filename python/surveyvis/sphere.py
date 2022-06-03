@@ -22,7 +22,7 @@ def offset_sep_bear(ra, decl, sep, bearing, degrees=False):
     ra : `float`
        R.A. Right Ascension
     decl : `float`
-       declination 
+       declination
 
     """
     # Use cos formula:
@@ -54,7 +54,7 @@ def offset_sep_bear(ra, decl, sep, bearing, degrees=False):
         dra = np.pi / 2 + np.cos(np_sep) * (np.pi / 2 - bearing)
 
     new_ra = ra + dra
-    
+
     if degrees:
         new_ra = np.degrees(new_ra)
         new_decl = np.degrees(new_decl)
@@ -146,9 +146,9 @@ def eq_to_horizon(ra, decl, lat, lst, degrees=False, cart=False):
     )
 
     if cart:
-        zd = np.pi/2 - alt
-        x = zd*np.sin(az)
-        y = -1*zd*np.cos(az)
+        zd = np.pi / 2 - alt
+        x = -zd * np.sin(az)
+        y = zd * np.cos(az)
         return x, y
 
     if degrees:
@@ -156,6 +156,7 @@ def eq_to_horizon(ra, decl, lat, lst, degrees=False, cart=False):
         az = np.degrees(az)
 
     return alt, az
+
 
 def rotate_cart(ux, uy, uz, angle, x0, y0, z0):
     """Rotate coordinates on a unit sphere around an axis
@@ -176,7 +177,7 @@ def rotate_cart(ux, uy, uz, angle, x0, y0, z0):
         Input y coordinate
     z0 : `float`
         Input z coordinate
-        
+
     Returns
     -------
     ux : `float`
