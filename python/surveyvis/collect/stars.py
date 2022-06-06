@@ -2,7 +2,8 @@ from collections import OrderedDict
 import os
 import pandas as pd
 
-BSC5_URL = 'http://tdc-www.harvard.edu/catalogs/bsc5.dat.gz'
+BSC5_URL = "http://tdc-www.harvard.edu/catalogs/bsc5.dat.gz"
+
 
 def load_bright_stars(fname=None):
     """Read the Yale Bright Star Catalog into a pandas.DataFrame.
@@ -16,10 +17,10 @@ def load_bright_stars(fname=None):
     -------
     bright_stars : `pandas.DataFrame`
         The catalog of bright stars.
-    """    
+    """
     if fname is None:
         try:
-            fname = os.environ['BSC5_FNAME']
+            fname = os.environ["BSC5_FNAME"]
         except KeyError:
             fname = BSC5_URL
 
@@ -37,14 +38,14 @@ def load_bright_stars(fname=None):
             ("Vmag", (102, 107)),
         )
     )
-    
-    compression = 'gzip' if fname.endswith('.gz') else 'infer'
-    
+
+    compression = "gzip" if fname.endswith(".gz") else "infer"
+
     bs = pd.read_fwf(
         fname,
         colspecs=[ybs_columns[k] for k in ybs_columns],
         names=[k for k in ybs_columns],
-        compression=compression
+        compression=compression,
     )
     bs["ra"] = (360 / 24) * (bs.RA_hour + (bs.RA_min + bs.RA_sec / 60.0) / 60.0)
     bs["decl"] = bs.decl_deg + (bs.decl_min + bs.decl_sec / 60.0) / 60.0

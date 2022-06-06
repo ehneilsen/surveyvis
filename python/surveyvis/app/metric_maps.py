@@ -5,12 +5,9 @@ from astropy.coordinates import SkyCoord
 
 from rubin_sim import maf
 
-from surveyvis.plot.SphereMap import (
-    ArmillarySphere,
-    Planisphere,
-    MollweideMap
-)
+from surveyvis.plot.SphereMap import ArmillarySphere, Planisphere, MollweideMap
 from surveyvis.collect.stars import load_bright_stars
+
 
 def make_metric_figure(metric_values_fname=None, nside=8, mag_limit_slider=True):
     """Create a figure showing multiple projections of a set of a MAF metric.
@@ -31,16 +28,16 @@ def make_metric_figure(metric_values_fname=None, nside=8, mag_limit_slider=True)
     fig : `bokeh.models.layouts.LayoutDOM`
         A bokeh figure that can be displayed in a notebook (e.g. with ``bokeh.io.show``) or used
         to create a bokeh app.
-        
+
     Notes
     -----
     If ``mag_limit_slider`` is ``True``, it creates a magnitude limit slider for the stars.
     This is implemented as a python callback, and so is only operational in full bokeh app,
     not standalone output.
     """
-    
+
     if metric_values_fname is None:
-        metric_values_fname = os.environ['METRIC_FNAME']
+        metric_values_fname = os.environ["METRIC_FNAME"]
 
     healpy_values = maf.MetricBundle.load(metric_values_fname).metricValues
 
@@ -52,33 +49,46 @@ def make_metric_figure(metric_values_fname=None, nside=8, mag_limit_slider=True)
     hp_ds, cmap, _ = arm.add_healpix(healpy_values, nside=nside)
     hz = arm.add_horizon()
     zd70 = arm.add_horizon(zd=70, line_kwargs={"color": "red", "line_width": 2})
-    star_ds = arm.add_stars(star_data, mag_limit_slider=mag_limit_slider, star_kwargs={"color": "black"})
+    star_ds = arm.add_stars(
+        star_data, mag_limit_slider=mag_limit_slider, star_kwargs={"color": "black"}
+    )
     arm.decorate()
-    
+
     pla = Planisphere()
     pla.add_healpix(hp_ds, cmap=cmap, nside=nside)
     pla.add_horizon(data_source=hz)
-    pla.add_horizon(zd=60, data_source=zd70, line_kwargs={"color": "red", "line_width": 2})
-    pla.add_stars(star_data, data_source=star_ds, mag_limit_slider=False, star_kwargs={"color": "black"})
+    pla.add_horizon(
+        zd=60, data_source=zd70, line_kwargs={"color": "red", "line_width": 2}
+    )
+    pla.add_stars(
+        star_data,
+        data_source=star_ds,
+        mag_limit_slider=False,
+        star_kwargs={"color": "black"},
+    )
     pla.decorate()
-    
-    mol_plot = bokeh.plotting.figure(
-                plot_width=512, plot_height=256, match_aspect=True
-            )
+
+    mol_plot = bokeh.plotting.figure(plot_width=512, plot_height=256, match_aspect=True)
     mol = MollweideMap(plot=mol_plot)
     mol.add_healpix(hp_ds, cmap=cmap, nside=nside)
     mol.add_horizon(data_source=hz)
-    mol.add_horizon(zd=70, data_source=zd70, line_kwargs={"color": "red", "line_width": 2})
-    mol.add_stars(star_data, data_source=star_ds, mag_limit_slider=False, star_kwargs={"color": "black"})
-    mol.decorate()
-    
-    figure = bokeh.layouts.row(
-        bokeh.layouts.column(mol.plot, *arm.sliders.values()),
-        arm.plot, 
-        pla.plot
+    mol.add_horizon(
+        zd=70, data_source=zd70, line_kwargs={"color": "red", "line_width": 2}
     )
-    
+    mol.add_stars(
+        star_data,
+        data_source=star_ds,
+        mag_limit_slider=False,
+        star_kwargs={"color": "black"},
+    )
+    mol.decorate()
+
+    figure = bokeh.layouts.row(
+        bokeh.layouts.column(mol.plot, *arm.sliders.values()), arm.plot, pla.plot
+    )
+
     return figure
+
 
 def add_metric_app(doc):
     """Add a metric figure to a bokeh document
@@ -87,11 +97,11 @@ def add_metric_app(doc):
     ----------
     doc : `bokeh.document.document.Document`
         The bokeh document to which to add the figure.
-    """    
+    """
     figure = make_metric_figure()
     doc.add_root(figure)
 
-if __name__.startswith('bokeh_app_'):
+
+if __name__.startswith("bokeh_app_"):
     doc = bokeh.plotting.curdoc()
     add_metric_app(doc)
-

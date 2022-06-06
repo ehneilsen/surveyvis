@@ -122,7 +122,7 @@ class SphereMap:
         hpz : `numpy.ndarray`
             Healpy vector z coordinates
             x=0, y=0, z=1 corresponds to Decl=90 deg.
-            x=0, y=0, z=-1 corresponds to Decl=-90 deg.            
+            x=0, y=0, z=-1 corresponds to Decl=-90 deg.
 
         Returns
         -------
@@ -132,7 +132,7 @@ class SphereMap:
             Orthographic y coordinate (positive up)
         z : `numpy.ndarray`
             Orthographic z coordinate (positive toward the viewer)
-        """        
+        """
         x1, y1, z1 = rotate_cart(0, 0, 1, -90, hpx, hpy, hpz)
         x2, y2, z2 = rotate_cart(1, 0, 0, self.lat + 90, x1, y1, z1)
 
@@ -152,7 +152,7 @@ class SphereMap:
         # Use np.finfo(z3[0]).resolution instead of exactly 0, because the
         # assorted trig operations result in values slightly above or below
         # 0 when the horizon is in principle exactly 0, and this gives an
-        # irregularly dotted/dashed appearance to the horizon if 
+        # irregularly dotted/dashed appearance to the horizon if
         # a cutoff of exactly 0 is used.
         orth_invisible = z3 > np.finfo(z3.dtype).resolution
         x3[orth_invisible] = np.nan
@@ -180,9 +180,9 @@ class SphereMap:
         coords : `list` [`np.ndarray`]
             Either alt, az (if cart=False) with az measured east of north,
             or x, y with +x pointing west and +y pointing north
-            
+
         Azimuth is east of north
-        """        
+        """
         alt, az = eq_to_horizon(ra, decl, self.lat, self.lst, degrees=degrees)
         if cart:
             x, y = eq_to_horizon(
@@ -212,7 +212,7 @@ class SphereMap:
         -------
         hpix_datasource : `bokeh.models.ColumnDataSource`
             Data source for healpixel values and bounds.
-        """        
+        """
         values = hp.ud_grade(hpvalues, nside)
         npix = hp.nside2npix(nside)
         npts = npix * 4 * bound_step
@@ -350,9 +350,9 @@ class SphereMap:
         -------
         graticule_points : `bokeh.models.ColumnDataSource`
             Bokeh data sources defining points in graticules.
-        """        
-        
-        # Bohek puts gaps in lines when there are NaNs in the 
+        """
+
+        # Bohek puts gaps in lines when there are NaNs in the
         # data frame. We will be platting many graticules, and we do not
         # want them connected, so define a "stop" element to separate
         # different graticules.
@@ -517,7 +517,7 @@ class SphereMap:
         -------
         circle : `bokeh.models.ColumnDataSource`
             Bokeh data source for points in the circle.
-        """        
+        """
         ras = []
         decls = []
         bearings = []
@@ -605,7 +605,7 @@ class SphereMap:
         -------
         circle : `bokeh.models.ColumnDataSource`
             Bokeh data source with points along the circle.
-        """        
+        """
         center_ra, center_decl = horizon_to_eq(lat, alt, az, lst, degrees=True)
         eq_circle_points = self.make_circle_points(
             center_ra, center_decl, radius, start_bear, end_bear, step
@@ -632,7 +632,7 @@ class SphereMap:
         points_data : `Iterable` , `dict` , or `pandas.DataFrame`
             A source of data (anything that can be passed to `pandas.DataFrame`)
             Must contain the following columns or keys:
-            
+
             ``"ra"``
                 The Right Ascension in degrees.
             ``"decl"``
@@ -642,7 +642,7 @@ class SphereMap:
         -------
         point : `bokeh.models.ColumnDataSource`
             A data source with point locations, including projected coordinates.
-        """        
+        """
         points_df = pd.DataFrame(points_data)
         x0s, y0s, z0s = hp.ang2vec(points_df.ra, points_df.decl, lonlat=True).T
         xs, ys, zs = self.to_orth_zenith(x0s, y0s, z0s)
@@ -676,7 +676,7 @@ class SphereMap:
         alt, az = eq_to_horizon(
             points_df.ra, points_df.decl, self.lat, self.lst, degrees=True, cart=False
         )
-        invisible = alt < -1*np.finfo(alt).resolution
+        invisible = alt < -1 * np.finfo(alt).resolution
         x_hz[invisible] = np.nan
         y_hz[invisible] = np.nan
 
@@ -703,15 +703,12 @@ class SphereMap:
 
         return points
 
-
     def add_sliders(self):
-        """Add (already defined) sliders to the map.
-        """
+        """Add (already defined) sliders to the map."""
         self.sliders = OrderedDict()
 
     def add_lst_slider(self):
-        """Add a slider to control the LST.
-        """        
+        """Add a slider to control the LST."""
         self.sliders["lst"] = bokeh.models.Slider(
             start=-12, end=36, value=self.lst * 24 / 360, step=np.pi / 180, title="LST"
         )
@@ -725,7 +722,7 @@ class SphereMap:
         ----------
         data_source : `bokeh.models.ColumnDataSource`
             The bokeh data source to update.
-        """        
+        """
         update_func = bokeh.models.CustomJS(
             args=dict(
                 data_source=data_source,
@@ -744,8 +741,7 @@ class SphereMap:
                 pass
 
     def show(self):
-        """Show the map.
-        """        
+        """Show the map."""
         bokeh.io.show(self.figure)
 
     def add_healpix(self, data, cmap=None, nside=16, bound_step=1):
@@ -771,7 +767,7 @@ class SphereMap:
             The color map used
         hp_glype : `bokeh.models.glyphs.Patches`
             The bokeh glyphs for the plotted patches.
-        """        
+        """
         if isinstance(data, bokeh.models.DataSource):
             data_source = data
         else:
@@ -814,12 +810,12 @@ class SphereMap:
         line_kwargs : dict, optional
             Keywords to be passed to ``bokeh.plotting.figure.Figure.line``,
             by default {}
-            
+
         Returns
         -------
         graticules : ` `bokeh.models.ColumnDataSource`
             The bokeh data source with points defining the graticules.
-        """        
+        """
         graticule_points = self.make_graticule_points(**graticule_kwargs)
         kwargs = deepcopy(self.default_graticule_line_kwargs)
         kwargs.update(line_kwargs)
@@ -846,7 +842,7 @@ class SphereMap:
         -------
         circle_points : `bokeh.models.ColumnDataSource`
             The bokeh data source with points defining the circle.
-        """        
+        """
         circle_points = self.make_circle_points(center_ra, center_decl, **circle_kwargs)
         self.plot.line(x=self.x_col, y=self.y_col, source=circle_points, **line_kwargs)
         return circle_points
@@ -950,7 +946,7 @@ class SphereMap:
         points_data : `Iterable` , `dict` , or `pandas.DataFrame`
             A source of data (anything that can be passed to `pandas.DataFrame`)
             Must contain the following columns or keys:
-            
+
             ``"ra"``
                 The Right Ascension in degrees.
             ``"decl"``
@@ -968,7 +964,7 @@ class SphereMap:
         -------
         data_source : `bokeh.models.ColumnDataSource`
             The bokeh data source with points defining star locations.
-        """        
+        """
         self.star_data = points_data
         if data_source is None:
             self.star_data_source = self.make_points(self.star_data)
@@ -1010,11 +1006,11 @@ class SphereMap:
             Old value for the magnitude limit (ignored)
         mag_limit : `float`
             Now value for the magnitude limit
-            
+
         Note
         ----
         This method is intended to be called as a callback by bokeh.
-        """        
+        """
         star_data = self.star_data.query(f"Vmag < {mag_limit}").copy()
         star_data.loc[:, "glyph_size"] = (
             self.max_star_glyph_size
@@ -1030,7 +1026,7 @@ class SphereMap:
         -------
         points : `bokeh.models.ColumnDataSource`
             The bokeh data source with points on the ecliptic.
-        """        
+        """
         ecliptic_pole = SkyCoord(
             lon=0 * u.degree, lat=90 * u.degree, frame="geocentricmeanecliptic"
         ).icrs
@@ -1048,7 +1044,7 @@ class SphereMap:
         -------
         points : `bokeh.models.ColumnDataSource`
             The bokeh data source with points on the galactic plane.
-        """        
+        """
         galactic_pole = SkyCoord(l=0 * u.degree, b=90 * u.degree, frame="galactic").icrs
         line_kwargs = deepcopy(self.default_galactic_plane_line_kwargs)
         line_kwargs.update(kwargs)
@@ -1058,8 +1054,7 @@ class SphereMap:
         return points
 
     def decorate(self):
-        """Add graticules, the ecliptic, and galactic plane to the map.
-        """        
+        """Add graticules, the ecliptic, and galactic plane to the map."""
         self.add_graticules()
         self.add_ecliptic()
         self.add_galactic_plane()
@@ -1101,7 +1096,7 @@ class MovingSphereMap(SphereMap):
             The color map used
         hp_glype : `bokeh.models.glyphs.Patches`
             The bokeh glyphs for the plotted patches.
-        """        
+        """
         data_source, cmap, hp_glyph = super().add_healpix(data, cmap, nside, bound_step)
         self.set_js_update_func(data_source)
         return data_source, cmap, hp_glyph
@@ -1117,12 +1112,12 @@ class MovingSphereMap(SphereMap):
         line_kwargs : dict, optional
             Keywords to be passed to ``bokeh.plotting.figure.Figure.line``,
             by default {}
-            
+
         Returns
         -------
         graticules : ` `bokeh.models.ColumnDataSource`
             The bokeh data source with points defining the graticules.
-        """    
+        """
         data_source = super().add_graticules(graticule_kwargs, line_kwargs)
         self.set_js_update_func(data_source)
         return data_source
@@ -1147,7 +1142,7 @@ class MovingSphereMap(SphereMap):
         -------
         circle_points : `bokeh.models.ColumnDataSource`
             The bokeh data source with points defining the circle.
-        """     
+        """
         data_source = super().add_circle(
             center_ra, center_decl, circle_kwargs, line_kwargs
         )
@@ -1164,7 +1159,7 @@ class MovingSphereMap(SphereMap):
         points_data : `Iterable` , `dict` , or `pandas.DataFrame`
             A source of data (anything that can be passed to `pandas.DataFrame`)
             Must contain the following columns or keys:
-            
+
             ``"ra"``
                 The Right Ascension in degrees.
             ``"decl"``
@@ -1182,7 +1177,7 @@ class MovingSphereMap(SphereMap):
         -------
         data_source : `bokeh.models.ColumnDataSource`
             The bokeh data source with points defining star locations.
-        """  
+        """
         data_source = super().add_stars(
             points_data, data_source, mag_limit_slider, star_kwargs
         )
@@ -1258,8 +1253,7 @@ class HorizonMap(MovingSphereMap):
                 pass
 
     def add_sliders(self, center_alt=90, center_az=0):
-        """Add (already defined) sliders to the map.
-        """
+        """Add (already defined) sliders to the map."""
         super().add_sliders()
         self.sliders["lst"] = bokeh.models.Slider(
             start=-12, end=36, value=self.lst * 24 / 360, step=np.pi / 180, title="LST"
@@ -1300,8 +1294,7 @@ class ArmillarySphere(MovingSphereMap):
                 pass
 
     def add_sliders(self, center_alt=90, center_az=0):
-        """Add (already defined) sliders to the map.
-        """
+        """Add (already defined) sliders to the map."""
         super().add_sliders()
         self.sliders["alt"] = bokeh.models.Slider(
             start=-90,

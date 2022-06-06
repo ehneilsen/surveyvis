@@ -2,6 +2,7 @@ from io import StringIO
 from collections import OrderedDict
 import rubin_sim
 
+
 def monkeypatch_scheduler(scheduler):
     """Add methods to a scheduler object to support display.
 
@@ -9,7 +10,7 @@ def monkeypatch_scheduler(scheduler):
     ----------
     scheduler : `rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler`
         An instance of the scheduler to patch.
-        
+
     Returns
     -------
     scheduler : `rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler`
@@ -35,7 +36,7 @@ def monkeypatch_scheduler(scheduler):
         basis_funcs : `OrderedDict` ['str`, `rubin_sim.scheduler.basis_functions.basis_functions.Base_basis_function`]
             A dictionary of the basis functions, where the keys are names for the basis functions and the values
             are the functions themselves.
-        """        
+        """
         if survey_index is None:
             survey_index = self.survey_index
 
@@ -67,19 +68,19 @@ def monkeypatch_scheduler(scheduler):
         basis_funcs : `OrderedDict` ['str`, `numpy.ndarray`]
             A dictionary of the maps, where the keys are names for the maps and
             values are the numpy arrays as used by ``healpy``.
-        """        
+        """
         if survey_index is None:
             survey_index = self.survey_index
 
         if conditions is None:
             conditions = self.conditions
-        
+
         maps = OrderedDict()
         for band in conditions.skybrightness.keys():
             maps[f"{band}_sky"] = conditions.skybrightness[band]
 
         basis_functions = self.get_basis_functions(survey_index, conditions)
-            
+
         for basis_func_key in basis_functions.keys():
             maps[basis_func_key] = basis_functions[basis_func_key](conditions)
 
@@ -88,11 +89,12 @@ def monkeypatch_scheduler(scheduler):
     def survey_repr(self):
         return f"<{self.__class__.__name__} with survey_name='{self.survey_name}'>"
 
-
     rubin_sim.scheduler.surveys.BaseSurvey.__repr__ = survey_repr
- 
+
     def scheduler_repr(self):
-        if isinstance(self.pointing2hpindx, rubin_sim.scheduler.utils.utils.hp_in_lsst_fov):
+        if isinstance(
+            self.pointing2hpindx, rubin_sim.scheduler.utils.utils.hp_in_lsst_fov
+        ):
             camera = "LSST"
         elif isinstance(
             self.pointing2hpindx, rubin_sim.scheduler.utils.utils.hp_in_comcam_fov
@@ -112,7 +114,9 @@ def monkeypatch_scheduler(scheduler):
         return this_repr
 
     def scheduler_str(self):
-        if isinstance(self.pointing2hpindx, rubin_sim.scheduler.utils.utils.hp_in_lsst_fov):
+        if isinstance(
+            self.pointing2hpindx, rubin_sim.scheduler.utils.utils.hp_in_lsst_fov
+        ):
             camera = "LSST"
         elif isinstance(
             self.pointing2hpindx, rubin_sim.scheduler.utils.utils.hp_in_comcam_fov
@@ -123,7 +127,7 @@ def monkeypatch_scheduler(scheduler):
 
         output = StringIO()
         print(self.__class__.__qualname__, file=output)
-        if len(self.survey_lists)==0:
+        if len(self.survey_lists) == 0:
             print("Scheduler contains no surveys.", file=output)
         else:
             print("Surveys:", file=output)
@@ -138,13 +142,13 @@ def monkeypatch_scheduler(scheduler):
         result = output.getvalue()
         return result
 
-    if 'get_basis_functions' not in dir(scheduler):
+    if "get_basis_functions" not in dir(scheduler):
         scheduler.__class__.get_basis_functions = get_basis_functions
 
-    if 'get_healpix_maps' not in dir(scheduler):
+    if "get_healpix_maps" not in dir(scheduler):
         scheduler.__class__.get_healpix_maps = get_healpix_maps
-    
+
     scheduler.__class__.__repr__ = scheduler_repr
     scheduler.__class__.__str__ = scheduler_str
-    
+
     return scheduler
