@@ -1,4 +1,5 @@
-import importlib
+import importlib.resources
+
 
 
 def read_javascript(fname):
