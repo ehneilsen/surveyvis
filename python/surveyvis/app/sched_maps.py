@@ -55,7 +55,7 @@ def make_scheduler_map_figure(
     map_keys = list(scheduler_healpix_maps.keys())
 
     healpy_values = scheduler_healpix_maps[init_key]
-    lst = conditions.lmst * 360 / 24
+    mjd = conditions.mjd
 
     tooltips = [
         ("RA", "@center_ra"),
@@ -73,7 +73,7 @@ def make_scheduler_map_figure(
         match_aspect=True,
         title="Armillary sphere",
     )
-    arm = ArmillarySphere(plot=arm_plot, lst=lst)
+    arm = ArmillarySphere(plot=arm_plot, mjd=mjd)
     hp_ds, cmap, arm_hp_glyph = arm.add_healpix(healpy_values, nside=nside)
     hz = arm.add_horizon()
     zd70 = arm.add_horizon(zd=70, line_kwargs={"color": "red", "line_width": 2})
@@ -86,7 +86,7 @@ def make_scheduler_map_figure(
         match_aspect=True,
         title="Planisphere",
     )
-    pla = Planisphere(plot=pla_plot, lst=lst)
+    pla = Planisphere(plot=pla_plot, mjd=mjd)
     pla_hp_ds, pla_cmap, pla_hp_glyph = pla.add_healpix(hp_ds, cmap=cmap, nside=nside)
     pla.add_horizon(data_source=hz)
     pla.add_horizon(
@@ -101,7 +101,7 @@ def make_scheduler_map_figure(
         match_aspect=True,
         title="Horizon",
     )
-    altaz = HorizonMap(plot=altaz_plot, lst=lst)
+    altaz = HorizonMap(plot=altaz_plot, mjd=mjd)
     aa_hp_ds, aa_cmap, aa_hp_glyph = altaz.add_healpix(hp_ds, cmap=cmap, nside=nside)
     # altaz.add_horizon()
     altaz.add_horizon(zd=70, line_kwargs={"color": "red", "line_width": 2})
@@ -110,7 +110,7 @@ def make_scheduler_map_figure(
     mol_plot = bokeh.plotting.figure(
         plot_width=512, plot_height=256, tooltips=tooltips, match_aspect=True
     )
-    mol = MollweideMap(plot=mol_plot, lst=lst)
+    mol = MollweideMap(plot=mol_plot, mjd=mjd)
     mol_hp_ds, mol_cmap, mol_hp_glyph = mol.add_healpix(hp_ds, cmap=cmap, nside=nside)
     mol.add_horizon(data_source=hz)
     mol.add_horizon(

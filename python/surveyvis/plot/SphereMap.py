@@ -9,13 +9,21 @@ import bokeh
 import bokeh.plotting
 import astropy.units as u
 from astropy.coordinates import SkyCoord
+from astropy.time import Time
+
+from rubin_sim.utils.Site import Site
+from rubin_sim.utils import calcLmstLast
+from rubin_sim.utils import altAzPaFromRaDec, raDecFromAltAz
+from rubin_sim.utils import approx_altAz2RaDec, approx_RaDec2AltAz
+from rubin_sim.utils import ObservationMetaData
 
 from surveyvis.plot.readjs import read_javascript
 
-from surveyvis.sphere import offset_sep_bear, horizon_to_eq, eq_to_horizon, rotate_cart
+from surveyvis.sphere import offset_sep_bear, rotate_cart
 
 ProjSliders = namedtuple("ProjSliders", ["alt", "az", "lst"])
 
+APPROX_COORD_TRANSFORMS = True
 
 class SphereMap:
     alt_limit = 0
@@ -28,25 +36,25 @@ class SphereMap:
     default_galactic_plane_line_kwargs = {"color": "blue"}
     default_horizon_line_kwargs = {"color": "black", "line_width": 6}
 
-    def __init__(self, plot=None, lst=0.0, lat=-30.244639, laea_limit_mag=88):
+    def __init__(self, plot=None, laea_limit_mag=88, mjd=None, site=Site('LSST')):
         """Base for maps of the sphere.
 
         Parameters
         ----------
         plot : `bokeh.plotting.figure.Figure`, optional
             Figure to which to add the map, by default None
-        lst : `float`, optional
-            Local sidereal time, in degrees, by default 0.0
-        lat : `float`, optional
-            Latitude of the observatory, in degrees, by default -30.244639
         laea_limit_mag : `float`, optional
             Magnitude of the limit for Lamber azimuthal equal area plots, in degrees.
             By default 88.
+        mjd : `float`, option
+            The Modified Julian Date
+        site : `rubin_sim.utils.Site.Site`, optional
+            The site of the observatory, defaults to LSST.
         """
 
-        self.lat = lat
-        self.lst = lst
         self.laea_limit_mag = laea_limit_mag
+        self.mjd = Time.now().mjd if mjd is None else mjd
+        self.site = site
 
         if plot is None:
             self.plot = bokeh.plotting.figure(
@@ -70,6 +78,21 @@ class SphereMap:
         self.add_sliders()
 
     @property
+    def lst(self):
+        """Return the Local Sidereal Time.
+        """
+        lst = calcLmstLast(self.mjd, self.site.longitude_rad)[1]*360.0/24.0
+        return lst
+    
+    @lst.setter
+    def lst(self, value):
+        """Modify the MJD to match the requested LST, keeping the same (UT) day.
+        """
+        mjd_start = np.floor(self.mjd)
+        lst_start = calcLmstLast(mjd_start, self.site.longitude_rad)[1]*360.0/24.0
+        self.mjd = mjd_start + ((value-lst_start)%360)/360.9856405809225
+
+    @property
     def update_js(self):
         """Return javascript code to update the plots.
 
@@ -90,7 +113,7 @@ class SphereMap:
         rot : `tuple` [`float`]
             The `rot` tuple to be passed to `healpy.projector.AzimuthalProj`.
         """
-        rot = (0, -90, 0) if self.lat < 0 else (0, 90, 180)
+        rot = (0, -90, 0) if self.site.latitude < 0 else (0, 90, 180)
         return rot
 
     @property
@@ -103,7 +126,7 @@ class SphereMap:
             The maximum (or minimum) value for the latitude shown in the
             Lambert Azimuthal Equal Area plot.
         """
-        limit = self.laea_limit_mag if self.lat < 0 else -1 * self.laea_limit_mag
+        limit = self.laea_limit_mag if self.site.latitude < 0 else -1 * self.laea_limit_mag
         return limit
 
     def to_orth_zenith(self, hpx, hpy, hpz):
@@ -134,11 +157,11 @@ class SphereMap:
             Orthographic z coordinate (positive toward the viewer)
         """
         x1, y1, z1 = rotate_cart(0, 0, 1, -90, hpx, hpy, hpz)
-        x2, y2, z2 = rotate_cart(1, 0, 0, self.lat + 90, x1, y1, z1)
+        x2, y2, z2 = rotate_cart(1, 0, 0, self.site.latitude + 90, x1, y1, z1)
 
         npole_x1, npole_y1, npole_z1 = rotate_cart(0, 0, 1, -90, 0, 0, 1)
         npole_x2, npole_y2, npole_z2 = rotate_cart(
-            1, 0, 0, self.lat + 90, npole_x1, npole_y1, npole_z1
+            1, 0, 0, self.site.latitude + 90, npole_x1, npole_y1, npole_z1
         )
         x3, y3, z3 = rotate_cart(npole_x2, npole_y2, npole_z2, -self.lst, x2, y2, z2)
 
@@ -183,17 +206,41 @@ class SphereMap:
 
         Azimuth is east of north
         """
-        alt, az = eq_to_horizon(ra, decl, self.lat, self.lst, degrees=degrees)
+        
+        # Due to a bug in altAzPaFromRaDec, it won't
+        # work on pandas Series, so convert to a numpy
+        # array if necessary.
+        if isinstance(ra, pd.Series):
+            ra = ra.values
+            
+        if isinstance(decl, pd.Series):
+            decl = decl.values
+        
+        observation_metadata = ObservationMetaData(mjd=self.mjd, site=self.site)
+        if degrees:
+            ra_deg, decl_deg = ra, decl
+        else:
+            ra_deg, decl_deg = np.degrees(ra), np.degrees(decl)
+        if APPROX_COORD_TRANSFORMS:
+            alt, az = approx_RaDec2AltAz(ra, decl, self.site.latitude, self.site.longitude, self.mjd)
+        else:
+            alt, az, _ =  altAzPaFromRaDec(ra, decl, observation_metadata)
+
         if cart:
-            x, y = eq_to_horizon(
-                ra, decl, self.lat, self.lst, degrees=degrees, cart=cart
-            )
+            zd = np.pi / 2 - np.radians(alt)
+            x = -zd * np.sin(np.radians(az))
+            y = zd * np.cos(np.radians(az))
+
             invisible = alt < self.alt_limit
             x[invisible] = np.nan
             y[invisible] = np.nan
             return x, y
-        else:
-            return alt, az
+        
+        if not degrees:
+            return np.radians(alt), np.radians(az)
+        
+        return alt, az
+
 
     def make_healpix_data_source(self, hpvalues, nside=32, bound_step=1):
         """Make a bokeh data source of healpixel values, corners, and projected coords.
@@ -259,7 +306,7 @@ class SphereMap:
         hpix_corners = hpix_bounds.explode(column=explode_cols)
 
         # Hide points near the discontinuity at the pole in laea
-        if self.lat < 0:
+        if self.site.latitude < 0:
             hide_laea = hpix_corners["decl"] > self.laea_limit
         else:
             hide_laea = hpix_corners["decl"] < self.laea_limit
@@ -421,7 +468,7 @@ class SphereMap:
             this_graticule.loc[:, "y_moll"] = y_moll
 
             x_hz, y_hz = self.eq_to_horizon(
-                this_graticule["ra"], this_graticule["decl"]
+                this_graticule["ra"].values, this_graticule["decl"].values
             )
             this_graticule.loc[:, "x_hz"] = x_hz
             this_graticule.loc[:, "y_hz"] = y_hz
@@ -476,7 +523,7 @@ class SphereMap:
             this_graticule.loc[:, "y_moll"] = y_moll
 
             x_hz, y_hz = self.eq_to_horizon(
-                this_graticule["ra"], this_graticule["decl"]
+                this_graticule["ra"].values, this_graticule["decl"].values
             )
             this_graticule.loc[:, "x_hz"] = x_hz
             this_graticule.loc[:, "y_hz"] = y_hz
@@ -544,7 +591,7 @@ class SphereMap:
         x_hz, y_hz = self.eq_to_horizon(np.array(ras), np.array(decls))
 
         # Hide discontinuities
-        if self.lat < 0:
+        if self.site.latitude < 0:
             laea_discont = np.array(decls) > self.laea_limit
         else:
             laea_discont = np.array(decls) < self.laea_limit
@@ -578,16 +625,12 @@ class SphereMap:
         return circle
 
     def make_horizon_circle_points(
-        self, lat, lst, alt=90, az=0, radius=90.0, start_bear=0, end_bear=360, step=1
+        self, alt=90, az=0, radius=90.0, start_bear=0, end_bear=360, step=1
     ):
         """Define points in a circle with the center defined in horizon coordinates.
 
         Parameters
         ----------
-        lat : `float`
-            Observer latitutude, in deg.
-        lst : `float`
-            Local Sidereal Time, in deg.
         alt : `float`
             Altitude of circle center, by default 90.
         az : `float`
@@ -606,14 +649,19 @@ class SphereMap:
         circle : `bokeh.models.ColumnDataSource`
             Bokeh data source with points along the circle.
         """
-        center_ra, center_decl = horizon_to_eq(lat, alt, az, lst, degrees=True)
+        observation_metadata = ObservationMetaData(mjd=self.mjd, site=self.site)
+        if APPROX_COORD_TRANSFORMS:
+            center_ra_arr, center_decl_arr = approx_altAz2RaDec(np.array([alt]), np.array([az]), self.site.latitude, self.site.longitude, self.mjd)
+            center_ra = center_ra_arr[0]
+            center_decl = center_decl_arr[0]
+        else:
+            center_ra, center_decl = raDecFromAltAz(alt, az, observation_metadata)
+
         eq_circle_points = self.make_circle_points(
             center_ra, center_decl, radius, start_bear, end_bear, step
         )
         ra = np.array(eq_circle_points.data["ra"])
         decl = np.array(eq_circle_points.data["decl"])
-        self.lat = lat
-        self.lst = lst
         alt, az = self.eq_to_horizon(ra, decl, degrees=True, cart=False)
 
         circle_data = dict(eq_circle_points.data)
@@ -653,14 +701,8 @@ class SphereMap:
         x_moll, y_moll = self.moll_proj.ang2xy(
             points_df.ra, points_df.decl, lonlat=True
         )
-        x_hz, y_hz = eq_to_horizon(
-            points_df.ra.values,
-            points_df.decl.values,
-            self.lat,
-            self.lst,
-            degrees=True,
-            cart=True,
-        )
+        x_hz, y_hz = self.eq_to_horizon(points_df.ra.values,
+            points_df.decl.values, degrees=True, cart=True)
 
         # If point_df.ra and points_df.decl have only one value, ang2xy returns scalars (or 0d arrays)
         # not 1d arrays, but bokeh.models.ColumnDataSource requires that column values
@@ -673,10 +715,10 @@ class SphereMap:
         x_hz = x_hz.reshape(x_hz.size)
         y_hz = y_hz.reshape(y_hz.size)
 
-        alt, az = eq_to_horizon(
-            points_df.ra, points_df.decl, self.lat, self.lst, degrees=True, cart=False
+        alt, az = self.eq_to_horizon(
+            points_df.ra, points_df.decl, degrees=True, cart=False
         )
-        invisible = alt < -1 * np.finfo(alt).resolution
+        invisible = alt < -1 * np.finfo(float).resolution
         x_hz[invisible] = np.nan
         y_hz[invisible] = np.nan
 
@@ -729,7 +771,7 @@ class SphereMap:
                 center_alt_slider={"value": 90},
                 center_az_slider={"value": 0},
                 lst_slider=self.sliders["lst"],
-                lat=self.lat,
+                lat=self.site.latitude,
             ),
             code=self.update_js,
         )
@@ -871,7 +913,7 @@ class SphereMap:
         """
         if data_source is None:
             circle_points = self.make_horizon_circle_points(
-                self.lat, self.lst, 90, 0, radius=zd, **circle_kwargs
+                90, 0, radius=zd, **circle_kwargs
             )
             if "lst" in self.sliders:
                 self.set_js_update_func(circle_points)
@@ -1241,7 +1283,7 @@ class HorizonMap(MovingSphereMap):
             args=dict(
                 data_source=data_source,
                 lst_slider=self.sliders["lst"],
-                lat=self.lat,
+                lat=self.site.latitude,
             ),
             code=self.update_js,
         )
@@ -1282,7 +1324,7 @@ class ArmillarySphere(MovingSphereMap):
                 center_alt_slider=self.sliders["alt"],
                 center_az_slider=self.sliders["az"],
                 lst_slider=self.sliders["lst"],
-                lat=self.lat,
+                lat=self.site.latitude,
             ),
             code=self.update_js,
         )
