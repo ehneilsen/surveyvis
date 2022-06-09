@@ -51,6 +51,9 @@ function applyRotations(hpx, hpy, hpz, codecl, ra, orient, npoleCoords1) {
 }
 
 function horizonToEq(lat, alt, az, lst) {
+    // Stupid simple rough approximation, ignores aberration, precession, diffraction, etc.
+    // Doing this "correctly" would make this much more complicated and much slower, and
+    // of the dates of relevance won't make a significant difference.
     const decl = Math.asin(Math.sin(alt) * Math.sin(lat) + Math.cos(lat) * Math.cos(alt) * Math.cos(az))
     const ha = Math.atan2(
         -1 * Math.cos(alt) * Math.cos(lat) * Math.sin(az),
@@ -62,6 +65,7 @@ function horizonToEq(lat, alt, az, lst) {
 }
 
 function eqToHorizon(ra, decl, lat, lst) {
+    // Stupid simple rough approximation, ignores aberration, precession, diffraction, etc.
     const ha = lst - ra
     const alt = Math.asin(
         Math.sin(decl) * Math.sin(lat) + Math.cos(decl) * Math.cos(lat) * Math.cos(ha)

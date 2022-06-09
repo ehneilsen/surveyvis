@@ -18,6 +18,8 @@ def monkeypatch_scheduler(scheduler):
         argument.)
     """
 
+    # Patching for Core_scheduler itself
+
     def get_basis_functions(self, survey_index=None, conditions=None):
         """Get the basis functions for a specific survey, in provided conditions.
 
@@ -49,6 +51,9 @@ def monkeypatch_scheduler(scheduler):
             if hasattr(basis_func(conditions), "__len__"):
                 basis_funcs[basis_func.__class__.__name__] = basis_func
         return basis_funcs
+    
+    if "get_basis_functions" not in dir(scheduler):
+        scheduler.__class__.get_basis_functions = get_basis_functions
 
     def get_healpix_maps(self, survey_index=None, conditions=None):
         """Get the healpix maps for a specific survey, in provided conditions.
@@ -85,11 +90,9 @@ def monkeypatch_scheduler(scheduler):
             maps[basis_func_key] = basis_functions[basis_func_key](conditions)
 
         return maps
-
-    def survey_repr(self):
-        return f"<{self.__class__.__name__} with survey_name='{self.survey_name}'>"
-
-    rubin_sim.scheduler.surveys.BaseSurvey.__repr__ = survey_repr
+    
+    if "get_healpix_maps" not in dir(scheduler):
+        scheduler.__class__.get_healpix_maps = get_healpix_maps
 
     def scheduler_repr(self):
         if isinstance(
@@ -112,6 +115,8 @@ def monkeypatch_scheduler(scheduler):
             log={repr(self.log)}
         )"""
         return this_repr
+
+    scheduler.__class__.__repr__ = scheduler_repr
 
     def scheduler_str(self):
         if isinstance(
@@ -142,13 +147,13 @@ def monkeypatch_scheduler(scheduler):
         result = output.getvalue()
         return result
 
-    if "get_basis_functions" not in dir(scheduler):
-        scheduler.__class__.get_basis_functions = get_basis_functions
-
-    if "get_healpix_maps" not in dir(scheduler):
-        scheduler.__class__.get_healpix_maps = get_healpix_maps
-
-    scheduler.__class__.__repr__ = scheduler_repr
     scheduler.__class__.__str__ = scheduler_str
+
+    # Patching for BaseSurvey
+
+    def survey_repr(self):
+        return f"<{self.__class__.__name__} with survey_name='{self.survey_name}'>"
+
+    rubin_sim.scheduler.surveys.BaseSurvey.__repr__ = survey_repr
 
     return scheduler
