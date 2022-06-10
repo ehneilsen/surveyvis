@@ -177,6 +177,7 @@ class SphereMap:
         # 0 when the horizon is in principle exactly 0, and this gives an
         # irregularly dotted/dashed appearance to the horizon if
         # a cutoff of exactly 0 is used.
+        
         orth_invisible = z3 > np.finfo(z3.dtype).resolution
         x3[orth_invisible] = np.nan
         y3[orth_invisible] = np.nan
@@ -319,10 +320,6 @@ class SphereMap:
             resol / np.cos(np.radians(decl))
         )
         hpix_corners.loc[hide_moll, ["x_moll", "y_moll"]] = np.NaN
-
-        # Hide points behind us in the orthographic projection
-        hide_ortho = hpix_corners["z_orth"] < 0
-        hpix_corners.loc[hide_ortho, ["x_orth"]] = np.NaN
 
         hpix_corners.replace([np.inf, -np.inf], np.NaN, inplace=True)
         hpix_data = hpix_corners.groupby("hpid").agg(lambda x: x.tolist())

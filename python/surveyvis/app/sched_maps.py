@@ -160,7 +160,7 @@ def make_scheduler_map_figure(
     survey_selector.on_change("value", switch_survey)
 
     tier_selector = bokeh.models.Select(
-        value=f"tier 0",
+        value=f"tier {survey_index[0]}",
         options=[f"tier {t}" for t in np.arange(len(scheduler.survey_lists))],
     )
 
