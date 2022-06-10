@@ -10,8 +10,6 @@ from surveyvis.plot.SphereMap import (
 )
 
 from surveyvis.collect import read_scheduler, read_conditions
-from surveyvis.munge.scheduler import monkeypatch_scheduler
-
 
 def make_scheduler_map_figure(
     scheduler_pickle_fname=None, init_key="AvoidDirectWind", nside=16
@@ -40,7 +38,8 @@ def make_scheduler_map_figure(
 
     # FIXME The pickle used for testing does not include several
     # required methods of the Scheduler class, so add them.
-    scheduler = monkeypatch_scheduler(scheduler)
+    if 'get_basis_functions' not in dir(scheduler):
+        import surveyvis.munge.monkeypatch_rubin_sim
 
     survey_index = deepcopy(scheduler.survey_index)
 
