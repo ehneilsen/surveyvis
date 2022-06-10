@@ -171,6 +171,18 @@ class Core_scheduler(rubin_sim.scheduler.schedulers.core_scheduler.Core_schedule
 
         df = pd.DataFrame(surveys).set_index("survey")
         return df
+    
+    def make_reward_df(self, conditions):
+        survey_dfs = []
+        for index0, survey_list in enumerate(self.survey_lists):
+            for index1, survey in enumerate(survey_list):
+                survey_df = survey.make_reward_df(conditions)
+                survey_df['list_index'] = index0
+                survey_df['survey_index'] = index1
+                survey_dfs.append(survey_df)
+                
+        survey_df = pd.concat(survey_dfs).set_index(['list_index', 'survey_index'])
+        return survey_df
 
 
 class Conditions(rubin_sim.scheduler.features.conditions.Conditions):
@@ -323,6 +335,32 @@ class Conditions(rubin_sim.scheduler.features.conditions.Conditions):
 class BaseSurvey(rubin_sim.scheduler.surveys.BaseSurvey):
     def __repr__(self):
         return f"<{self.__class__.__name__} survey_name='{self.survey_name}' at {hex(id(self))}>"
+    
+    def make_reward_df(self, conditions):
+        feasibility = []
+        accum_reward = []
+        bf_reward = []
+        bf_label = []
+        basis_functions = []
+        for basis_function in self.basis_functions:
+            basis_functions.append(basis_function)
+            test_survey = deepcopy(self)
+            test_survey.basis_functions = basis_functions        
+            bf_label.append(basis_function.label())
+            bf_reward.append(np.nanmax(basis_function(conditions)))
+            feasibility.append(basis_function.check_feasibility(conditions))
+            try:
+                accum_reward.append(np.nanmax(test_survey.calc_reward_function(conditions)))
+            except IndexError:
+                accum_reward.append(None)
+    
+        reward_df = pd.DataFrame({
+            'basis_function': bf_label,
+            'feasible': feasibility,
+            'basis_reward': bf_reward,
+            'accum_reward': accum_reward
+        })
+        return reward_df
 
     def reward_changes(self, conditions):
         reward_values = []
@@ -340,6 +378,35 @@ class BaseSurvey(rubin_sim.scheduler.surveys.BaseSurvey):
         return list(zip(bf_names, reward_values))
     
 class BaseMarkovDF_survey(rubin_sim.scheduler.surveys.BaseMarkovDF_survey):
+    def make_reward_df(self, conditions):
+        feasibility = []
+        accum_reward = []
+        bf_reward = []
+        bf_label = []
+        basis_functions = []
+        basis_weights = []
+        for (weight, basis_function) in zip(self.basis_weights, self.basis_functions):
+            basis_functions.append(basis_function)
+            basis_weights.append(weight)
+            test_survey = deepcopy(self)
+            test_survey.basis_functions = basis_functions
+            test_survey.basis_weights = basis_weights 
+            bf_label.append(basis_function.label())
+            bf_reward.append(np.nanmax(basis_function(conditions)))
+            feasibility.append(basis_function.check_feasibility(conditions))
+            try:
+                accum_reward.append(np.nanmax(test_survey.calc_reward_function(conditions)))
+            except IndexError:
+                accum_reward.append(None)
+    
+        reward_df = pd.DataFrame({
+            'basis_function': bf_label,
+            'feasible': feasibility,
+            'basis_reward': bf_reward,
+            'accum_reward': accum_reward
+        })
+        return reward_df
+
     def reward_changes(self, conditions):
         reward_values = []
         
@@ -358,6 +425,8 @@ class BaseMarkovDF_survey(rubin_sim.scheduler.surveys.BaseMarkovDF_survey):
 
         bf_names = [bf.label() for bf in self.basis_functions]
         return list(zip(bf_names, reward_values))
+
+
 
 class Deep_drilling_survey(rubin_sim.scheduler.surveys.Deep_drilling_survey):
     def __repr__(self):
@@ -391,6 +460,10 @@ rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler.__str__ = (
 rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler.surveys_df = (
     Core_scheduler.surveys_df
 )
+rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler.make_reward_df = (
+    Core_scheduler.make_reward_df
+)
+
 #rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler._ipython_display_= Core_scheduler._ipython_display_
 rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler._repr_markdown_= Core_scheduler._repr_markdown_
 
@@ -405,3 +478,6 @@ rubin_sim.scheduler.features.conditions.Conditions._repr_markdown_ = Conditions.
 
 rubin_sim.scheduler.surveys.BaseMarkovDF_survey.reward_changes = BaseMarkovDF_survey.reward_changes 
 rubin_sim.scheduler.surveys.BaseSurvey.reward_changes = BaseSurvey.reward_changes 
+
+rubin_sim.scheduler.surveys.BaseSurvey.make_reward_df = BaseSurvey.make_reward_df
+rubin_sim.scheduler.surveys.BaseMarkovDF_survey.make_reward_df = BaseMarkovDF_survey.make_reward_df
