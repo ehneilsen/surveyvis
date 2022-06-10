@@ -11,6 +11,8 @@ from surveyvis.plot.SphereMap import (
 
 from surveyvis.collect import read_scheduler, read_conditions
 
+import bokeh.models
+
 def make_scheduler_map_figure(
     scheduler_pickle_fname=None, init_key="AvoidDirectWind", nside=16
 ):
@@ -116,6 +118,14 @@ def make_scheduler_map_figure(
         zd=70, data_source=zd70, line_kwargs={"color": "red", "line_width": 2}
     )
     mol.decorate()
+    
+    #
+    # Reward table
+    #
+    reward_df = scheduler.survey_lists[survey_index[0]][survey_index[1]].make_reward_df(conditions)
+    reward_source = bokeh.models.ColumnDataSource(reward_df)
+    reward_columns = [bokeh.models.TableColumn(field=c, title=c) for c in reward_df]
+    reward_table = bokeh.models.DataTable(source=reward_source, columns=reward_columns)
 
     #
     # Select survey to show
@@ -142,6 +152,10 @@ def make_scheduler_map_figure(
             scheduler.get_healpix_maps(survey_index=survey_index, conditions=conditions)
         )
         value_selector.value = init_key
+        
+        reward_df = scheduler.survey_lists[survey_index[0]][survey_index[1]].make_reward_df(conditions)
+        reward_source = bokeh.models.ColumnDataSource(reward_df)
+        reward_table.source = reward_source
 
     survey_selector.on_change("value", switch_survey)
 
@@ -213,6 +227,7 @@ def make_scheduler_map_figure(
     row1 = bokeh.layouts.row(
         bokeh.layouts.column(mol.plot, *controls),
         arm.plot,
+        reward_table,
     )
     row2 = bokeh.layouts.row(altaz.plot, pla.plot)
     figure = bokeh.layouts.column(row1, row2)
