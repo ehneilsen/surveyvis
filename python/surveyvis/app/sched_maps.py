@@ -218,19 +218,20 @@ def make_scheduler_map_figure(
 
     switch_value("value", init_key, init_key)
 
-    controls = list(arm.sliders.values()) + [
+    controls = [
+        arm.sliders['alt'],
+        arm.sliders['az'],
         tier_selector,
         survey_selector,
         value_selector,
     ]
 
-    row1 = bokeh.layouts.row(
-        bokeh.layouts.column(mol.plot, *controls),
-        arm.plot,
-        reward_table,
+    figure = bokeh.layouts.row(
+        bokeh.layouts.column(arm.plot, *controls, reward_table),
+        bokeh.layouts.column(altaz.plot, pla.plot, mol.plot)
     )
-    row2 = bokeh.layouts.row(altaz.plot, pla.plot)
-    figure = bokeh.layouts.column(row1, row2)
+    # row2 = bokeh.layouts.row(arm.plot, pla.plot)
+    # figure = bokeh.layouts.column(row1, row2, mol.plot)
 
     return figure
 
