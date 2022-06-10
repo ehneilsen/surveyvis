@@ -62,9 +62,8 @@ def make_scheduler_map_figure(
         ("RA", "@center_ra"),
         ("Decl", "@center_decl"),
         ("AvoidDirectWind", "@AvoidDirectWind"),
-        ("Slewtime", "@Slewtime_basis_function"),
-        ("Moon avoidance", "@Moon_avoidance_basis_function"),
-        ("Zenith shadow mask", "@Zenith_shadow_mask_basis_function"),
+        ("Moon avoidance", "@Moon_avoidance"),
+        ("Zenith shadow mask", "@Zenith_shadow_mask"),
     ]
 
     arm_plot = bokeh.plotting.figure(
@@ -106,6 +105,7 @@ def make_scheduler_map_figure(
     aa_hp_ds, aa_cmap, aa_hp_glyph = altaz.add_healpix(hp_ds, cmap=cmap, nside=nside)
     # altaz.add_horizon()
     altaz.add_horizon(zd=70, line_kwargs={"color": "red", "line_width": 2})
+    altaz.add_horizon_graticules()
     # altaz.decorate()
 
     mol_plot = bokeh.plotting.figure(

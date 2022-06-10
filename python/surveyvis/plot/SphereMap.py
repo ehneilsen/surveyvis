@@ -531,6 +531,94 @@ class SphereMap:
         graticule_points = bokeh.models.ColumnDataSource(pd.concat(graticule_list))
         return graticule_points
 
+    def make_horizon_graticule_points(
+        self,
+        min_alt=0,
+        max_alt=80,
+        alt_space=20,
+        min_az=0,
+        max_az=360,
+        az_space=30,
+        step=1,
+    ):
+        """Create points that define graticules
+
+        Parameters
+        ----------
+        min_alt : int, optional
+            Alt. of minimum az graticule
+            and ends of alt graticules (deg),
+            by default 0
+        max_alt : int, optional
+            Alt. of maximum az graticulas
+            and ends of alt graticules (deg),
+            by default 80
+        alt_space : int, optional
+            Spacing of alt. graticules (deg), by default 20
+        min_az : int, optional
+            Az of first azimuth graticule (deg), by default 0
+        max_ra : int, optional
+            Az of last azimuth graticule (deg), by default 360
+        az_space : int, optional
+            Spacing of azimuth graticules (deg), by default 30
+        step : int, optional
+            Spacing of points along graticules, by default 1
+
+        Returns
+        -------
+        graticule_points : `bokeh.models.ColumnDataSource`
+            Bokeh data sources defining points in graticules.
+        """
+
+        # Bohek puts gaps in lines when there are NaNs in the
+        # data frame. We will be platting many graticules, and we do not
+        # want them connected, so define a "stop" element to separate
+        # different graticules.
+        stop_df = pd.DataFrame(
+            {
+                "decl": [np.nan],
+                "ra": [np.nan],
+                "alt": [np.nan],
+                "az": [np.nan],
+                "grat": None,
+                "x_orth": [np.nan],
+                "y_orth": [np.nan],
+                "z_orth": [np.nan],
+                "x_laea": [np.nan],
+                "y_laea": [np.nan],
+                "x_moll": [np.nan],
+                "y_moll": [np.nan],
+                "x_hz": [np.nan],
+                "y_hz": [np.nan],
+            }
+        )
+        graticule_list = []
+
+        # Define points in each alt graticule
+        for alt in np.arange(min_alt, max_alt + alt_space, alt_space):
+            radius = 90-alt
+            start_bear = 0
+            end_bear = 360+step
+            this_graticule = pd.DataFrame(self.make_horizon_circle_points(90, 0, radius, start_bear, end_bear, step).data)
+            this_graticule['grat'] = f"Alt{alt}"
+
+            graticule_list.append(this_graticule)
+            graticule_list.append(stop_df)
+            
+        for az in np.arange(min_az, max_az+step, az_space):
+            radius = 90
+            this_graticule = pd.DataFrame(self.make_horizon_circle_points(0, az+90, radius, 0, 360+step, step).data)
+            this_graticule.query(f'(alt > {min_alt}) and (alt <= {max_alt}) and (abs(az-{az}) < 1)', inplace=True)
+            this_graticule.sort_values(by='alt', inplace=True)
+            this_graticule['grat'] = f"Az{az}"
+
+            graticule_list.append(this_graticule)
+            graticule_list.append(stop_df)
+
+        graticule_points = bokeh.models.ColumnDataSource(pd.concat(graticule_list))
+        return graticule_points
+
+
     def make_circle_points(
         self,
         center_ra,
@@ -856,6 +944,29 @@ class SphereMap:
             The bokeh data source with points defining the graticules.
         """
         graticule_points = self.make_graticule_points(**graticule_kwargs)
+        kwargs = deepcopy(self.default_graticule_line_kwargs)
+        kwargs.update(line_kwargs)
+        self.plot.line(x=self.x_col, y=self.y_col, source=graticule_points, **kwargs)
+        return graticule_points
+    
+    def add_horizon_graticules(self, graticule_kwargs={}, line_kwargs={}):
+        """Add graticules to the map
+
+        Parameters
+        ----------
+        graticule_kwargs : dict, optional
+            Keywords to be passed to ``SphereMap.make_graticule_points``,
+            by default {}
+        line_kwargs : dict, optional
+            Keywords to be passed to ``bokeh.plotting.figure.Figure.line``,
+            by default {}
+
+        Returns
+        -------
+        graticules : ` `bokeh.models.ColumnDataSource`
+            The bokeh data source with points defining the graticules.
+        """
+        graticule_points = self.make_horizon_graticule_points(**graticule_kwargs)
         kwargs = deepcopy(self.default_graticule_line_kwargs)
         kwargs.update(line_kwargs)
         self.plot.line(x=self.x_col, y=self.y_col, source=graticule_points, **kwargs)

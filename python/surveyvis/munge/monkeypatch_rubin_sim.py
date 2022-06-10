@@ -79,7 +79,8 @@ class Core_scheduler(rubin_sim.scheduler.schedulers.core_scheduler.Core_schedule
         basis_functions = self.get_basis_functions(survey_index, conditions)
 
         for basis_func_key in basis_functions.keys():
-            maps[basis_func_key] = basis_functions[basis_func_key](conditions)
+            label = basis_functions[basis_func_key].label()
+            maps[label] = basis_functions[basis_func_key](conditions)
 
         return maps
 
