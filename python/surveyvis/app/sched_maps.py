@@ -213,6 +213,8 @@ def make_scheduler_map_figure(
         pla_hp_glyph.line_color = new_cmap
         mol_hp_glyph.fill_color = new_cmap
         mol_hp_glyph.line_color = new_cmap
+        aa_hp_glyph.fill_color = new_cmap
+        aa_hp_glyph.line_color = new_cmap
 
     value_selector.on_change("value", switch_value)
 
