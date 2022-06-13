@@ -7,6 +7,7 @@ from surveyvis.plot.SphereMap import (
     HorizonMap,
     Planisphere,
     MollweideMap,
+    make_zscale_linear_cmap,
 )
 
 from surveyvis.collect import read_scheduler, read_conditions
@@ -187,6 +188,9 @@ def make_scheduler_map_figure(
     def switch_value(attrname, old, new):
         hp_values = scheduler_healpix_maps[new]
 
+        # Rescale the color map for the new data
+        new_cmap = make_zscale_linear_cmap(hp_values)
+
         new_ds = arm.make_healpix_data_source(
             hp_values,
             nside=nside,
@@ -200,13 +204,6 @@ def make_scheduler_map_figure(
         # Replace the data to be shown
         hp_ds.data = new_data
 
-        # Rescale the color map for the new data
-        new_cmap = bokeh.transform.linear_cmap(
-            "value",
-            "Inferno256",
-            np.nanmin(new_data["value"]),
-            np.nanmax(new_data["value"]),
-        )
         arm_hp_glyph.fill_color = new_cmap
         arm_hp_glyph.line_color = new_cmap
         pla_hp_glyph.fill_color = new_cmap

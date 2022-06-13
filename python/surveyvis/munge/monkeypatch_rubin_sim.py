@@ -74,7 +74,8 @@ class Core_scheduler(rubin_sim.scheduler.schedulers.core_scheduler.Core_schedule
 
         maps = OrderedDict()
         for band in conditions.skybrightness.keys():
-            maps[f"{band}_sky"] = conditions.skybrightness[band]
+            maps[f"{band}_sky"] = deepcopy(conditions.skybrightness[band])
+            maps[f"{band}_sky"][maps[f"{band}_sky"]<-1e30] = np.nan
 
         basis_functions = self.get_basis_functions(survey_index, conditions)
 

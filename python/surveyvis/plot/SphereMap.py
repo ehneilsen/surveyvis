@@ -10,6 +10,7 @@ import bokeh.plotting
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
+import astropy.visualization
 
 from rubin_sim.utils.Site import Site
 from rubin_sim.utils import calcLmstLast
@@ -903,12 +904,7 @@ class SphereMap:
         self.healpix_data = data_source
 
         if cmap is None:
-            cmap = bokeh.transform.linear_cmap(
-                "value",
-                "Inferno256",
-                np.nanmin(data_source.data["value"]),
-                np.nanmax(data_source.data["value"]),
-            )
+            cmap = make_zscale_linear_cmap(data_source.data["value"])
 
         self.healpix_cmap = cmap
 
@@ -1463,3 +1459,11 @@ class ArmillarySphere(MovingSphereMap):
         self.figure = bokeh.layouts.column(
             self.plot, self.sliders["alt"], self.sliders["az"], self.sliders["lst"]
         )
+
+
+def make_zscale_linear_cmap(values, field_name='value', palette='Inferno256', *args, **kwargs):
+    zscale_interval = astropy.visualization.ZScaleInterval(*args, **kwargs)
+    scale_limits = zscale_interval.get_limits(values)
+    cmap = bokeh.transform.linear_cmap(field_name, palette, scale_limits[0], scale_limits[1])
+    return cmap
+    
