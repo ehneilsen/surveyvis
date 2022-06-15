@@ -113,7 +113,11 @@ class SchedulerMap():
         self.map_key = self.map_keys[-1]
 
         self.mjd = self.conditions.mjd
+        for sphere_map in self.sphere_maps.values():
+            sphere_map.mjd = self.mjd
 
+        self.sphere_maps['armillary_sphere'].sliders['lst'].value = self.sphere_maps['armillary_sphere'].lst * 24.0/360.0
+        
         self.update_tier_selector()
 
     def make_tier_selector(self):
@@ -238,7 +242,7 @@ class SchedulerMap():
 
         # Pick one of your spherical map objects
         # to use to create a new data source.
-        sphere_map = list(self.sphere_maps.values())[0]
+        sphere_map = ArmillarySphere(mjd=self.conditions.mjd)
         new_ds = sphere_map.make_healpix_data_source(
             self.healpix_values,
             nside=self.nside,
@@ -274,6 +278,7 @@ class SchedulerMap():
         self.make_sphere_map('armillary_sphere', ArmillarySphere, "Armillary Sphere", plot_width=512, plot_height=512, decorate=True)
         self.bokeh_models['alt_slider'] = self.sphere_maps['armillary_sphere'].sliders['alt']
         self.bokeh_models['az_slider'] = self.sphere_maps['armillary_sphere'].sliders['az']
+        self.bokeh_models['lst_slider'] = self.sphere_maps['armillary_sphere'].sliders['lst']
         self.make_sphere_map('planisphere', Planisphere, "Planisphere", plot_width=512, plot_height=512, decorate=True)
         self.make_sphere_map('altaz', HorizonMap, "Alt Az", plot_width=512, plot_height=512, decorate=False, horizon_graticules=True)
         self.make_sphere_map('mollweide', MollweideMap, "Mollweide", plot_width=512, plot_height=512, decorate=True)
@@ -288,18 +293,14 @@ class SchedulerMap():
         controls = [
             self.bokeh_models['alt_slider'],
             self.bokeh_models['az_slider'],
+            self.bokeh_models['lst_slider'],
             self.bokeh_models['file_input_box'],
             self.bokeh_models['tier_selector'],
             self.bokeh_models['survey_selector'],
             self.bokeh_models['value_selector'],
         ]
 
-        self.load('/media/psf/Home/devel/surveyvis/data/Scheduler:2_Scheduler:2_2022-02-18T04:55:02.699.p')
-        #reward_df = self.scheduler.survey_lists[self.survey_index[0]][self.survey_index[1]].make_reward_df(self.conditions).head(2)
-        #self.bokeh_models['reward_table'] = bokeh.models.DataTable(
-        #    source=bokeh.models.ColumnDataSource(reward_df),
-        #    columns = [bokeh.models.TableColumn(field=c, title=c) for c in reward_df]
-        #)
+        # self.load('/media/psf/Home/devel/surveyvis/data/Scheduler:2_Scheduler:2_2022-02-18T04:55:02.699.p')
 
         figure = bokeh.layouts.row(
             bokeh.layouts.column(self.bokeh_models['armillary_sphere'], *controls, self.bokeh_models['reward_table']),
