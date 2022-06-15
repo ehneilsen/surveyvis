@@ -106,6 +106,10 @@ class SchedulerMap():
         if self.survey_index[1] is None:
             self.survey_index[1] = 0
 
+        self.update_for_new_conditions()
+        self.update_tier_selector()        
+
+    def update_for_new_conditions(self):
         self.scheduler_healpix_maps = self.scheduler.get_healpix_maps(
             survey_index=self.survey_index, conditions=self.conditions
         )
@@ -116,9 +120,7 @@ class SchedulerMap():
         for sphere_map in self.sphere_maps.values():
             sphere_map.mjd = self.mjd
 
-        self.sphere_maps['armillary_sphere'].sliders['lst'].value = self.sphere_maps['armillary_sphere'].lst * 24.0/360.0
-        
-        self.update_tier_selector()
+        self.sphere_maps['armillary_sphere'].sliders['lst'].value = self.sphere_maps['armillary_sphere'].lst * 24.0/360.0        
 
     def make_tier_selector(self):
         tier_selector = bokeh.models.Select(value=None, options=[None])
@@ -279,6 +281,7 @@ class SchedulerMap():
         self.bokeh_models['alt_slider'] = self.sphere_maps['armillary_sphere'].sliders['alt']
         self.bokeh_models['az_slider'] = self.sphere_maps['armillary_sphere'].sliders['az']
         self.bokeh_models['lst_slider'] = self.sphere_maps['armillary_sphere'].sliders['lst']
+        self.bokeh_models['lst_slider'].visible = False
         self.make_sphere_map('planisphere', Planisphere, "Planisphere", plot_width=512, plot_height=512, decorate=True)
         self.make_sphere_map('altaz', HorizonMap, "Alt Az", plot_width=512, plot_height=512, decorate=False, horizon_graticules=True)
         self.make_sphere_map('mollweide', MollweideMap, "Mollweide", plot_width=512, plot_height=512, decorate=True)
