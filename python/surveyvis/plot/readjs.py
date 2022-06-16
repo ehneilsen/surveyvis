@@ -1,7 +1,6 @@
 import importlib.resources
 
 
-
 def read_javascript(fname):
     """Read javascript source code from the current package.
 

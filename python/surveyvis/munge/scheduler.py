@@ -51,7 +51,7 @@ def monkeypatch_scheduler(scheduler):
             if hasattr(basis_func(conditions), "__len__"):
                 basis_funcs[basis_func.__class__.__name__] = basis_func
         return basis_funcs
-    
+
     if "get_basis_functions" not in dir(scheduler):
         scheduler.__class__.get_basis_functions = get_basis_functions
 
@@ -90,7 +90,7 @@ def monkeypatch_scheduler(scheduler):
             maps[basis_func_key] = basis_functions[basis_func_key](conditions)
 
         return maps
-    
+
     if "get_healpix_maps" not in dir(scheduler):
         scheduler.__class__.get_healpix_maps = get_healpix_maps
 

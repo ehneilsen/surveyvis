@@ -61,6 +61,7 @@ def offset_sep_bear(ra, decl, sep, bearing, degrees=False):
 
     return new_ra, new_decl
 
+
 def rotate_cart(ux, uy, uz, angle, x0, y0, z0):
     """Rotate coordinates on a unit sphere around an axis
 

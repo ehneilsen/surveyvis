@@ -26,6 +26,7 @@ ProjSliders = namedtuple("ProjSliders", ["alt", "az", "lst"])
 
 APPROX_COORD_TRANSFORMS = True
 
+
 class SphereMap:
     alt_limit = 0
     update_js_fname = "update_map.js"
@@ -37,7 +38,7 @@ class SphereMap:
     default_galactic_plane_line_kwargs = {"color": "blue"}
     default_horizon_line_kwargs = {"color": "black", "line_width": 6}
 
-    def __init__(self, plot=None, laea_limit_mag=88, mjd=None, site=Site('LSST')):
+    def __init__(self, plot=None, laea_limit_mag=88, mjd=None, site=Site("LSST")):
         """Base for maps of the sphere.
 
         Parameters
@@ -80,18 +81,16 @@ class SphereMap:
 
     @property
     def lst(self):
-        """Return the Local Sidereal Time.
-        """
-        lst = calcLmstLast(self.mjd, self.site.longitude_rad)[1]*360.0/24.0
+        """Return the Local Sidereal Time."""
+        lst = calcLmstLast(self.mjd, self.site.longitude_rad)[1] * 360.0 / 24.0
         return lst
-    
+
     @lst.setter
     def lst(self, value):
-        """Modify the MJD to match the requested LST, keeping the same (UT) day.
-        """
+        """Modify the MJD to match the requested LST, keeping the same (UT) day."""
         mjd_start = np.floor(self.mjd)
-        lst_start = calcLmstLast(mjd_start, self.site.longitude_rad)[1]*360.0/24.0
-        self.mjd = mjd_start + ((value-lst_start)%360)/360.9856405809225
+        lst_start = calcLmstLast(mjd_start, self.site.longitude_rad)[1] * 360.0 / 24.0
+        self.mjd = mjd_start + ((value - lst_start) % 360) / 360.9856405809225
 
     @property
     def update_js(self):
@@ -127,7 +126,9 @@ class SphereMap:
             The maximum (or minimum) value for the latitude shown in the
             Lambert Azimuthal Equal Area plot.
         """
-        limit = self.laea_limit_mag if self.site.latitude < 0 else -1 * self.laea_limit_mag
+        limit = (
+            self.laea_limit_mag if self.site.latitude < 0 else -1 * self.laea_limit_mag
+        )
         return limit
 
     def to_orth_zenith(self, hpx, hpy, hpz):
@@ -178,7 +179,7 @@ class SphereMap:
         # 0 when the horizon is in principle exactly 0, and this gives an
         # irregularly dotted/dashed appearance to the horizon if
         # a cutoff of exactly 0 is used.
-        
+
         orth_invisible = z3 > np.finfo(z3.dtype).resolution
         x3[orth_invisible] = np.nan
         y3[orth_invisible] = np.nan
@@ -208,25 +209,27 @@ class SphereMap:
 
         Azimuth is east of north
         """
-        
+
         # Due to a bug in altAzPaFromRaDec, it won't
         # work on pandas Series, so convert to a numpy
         # array if necessary.
         if isinstance(ra, pd.Series):
             ra = ra.values
-            
+
         if isinstance(decl, pd.Series):
             decl = decl.values
-        
+
         observation_metadata = ObservationMetaData(mjd=self.mjd, site=self.site)
         if degrees:
             ra_deg, decl_deg = ra, decl
         else:
             ra_deg, decl_deg = np.degrees(ra), np.degrees(decl)
         if APPROX_COORD_TRANSFORMS:
-            alt, az = approx_RaDec2AltAz(ra, decl, self.site.latitude, self.site.longitude, self.mjd)
+            alt, az = approx_RaDec2AltAz(
+                ra, decl, self.site.latitude, self.site.longitude, self.mjd
+            )
         else:
-            alt, az, _ =  altAzPaFromRaDec(ra, decl, observation_metadata)
+            alt, az, _ = altAzPaFromRaDec(ra, decl, observation_metadata)
 
         if cart:
             zd = np.pi / 2 - np.radians(alt)
@@ -237,12 +240,11 @@ class SphereMap:
             x[invisible] = np.nan
             y[invisible] = np.nan
             return x, y
-        
+
         if not degrees:
             return np.radians(alt), np.radians(az)
-        
-        return alt, az
 
+        return alt, az
 
     def make_healpix_data_source(self, hpvalues, nside=32, bound_step=1):
         """Make a bokeh data source of healpixel values, corners, and projected coords.
@@ -597,28 +599,38 @@ class SphereMap:
 
         # Define points in each alt graticule
         for alt in np.arange(min_alt, max_alt + alt_space, alt_space):
-            radius = 90-alt
+            radius = 90 - alt
             start_bear = 0
-            end_bear = 360+step
-            this_graticule = pd.DataFrame(self.make_horizon_circle_points(90, 0, radius, start_bear, end_bear, step).data)
-            this_graticule['grat'] = f"Alt{alt}"
+            end_bear = 360 + step
+            this_graticule = pd.DataFrame(
+                self.make_horizon_circle_points(
+                    90, 0, radius, start_bear, end_bear, step
+                ).data
+            )
+            this_graticule["grat"] = f"Alt{alt}"
 
             graticule_list.append(this_graticule)
             graticule_list.append(stop_df)
-            
-        for az in np.arange(min_az, max_az+step, az_space):
+
+        for az in np.arange(min_az, max_az + step, az_space):
             radius = 90
-            this_graticule = pd.DataFrame(self.make_horizon_circle_points(0, az+90, radius, 0, 360+step, step).data)
-            this_graticule.query(f'(alt > {min_alt}) and (alt <= {max_alt}) and (abs(az-{az}) < 1)', inplace=True)
-            this_graticule.sort_values(by='alt', inplace=True)
-            this_graticule['grat'] = f"Az{az}"
+            this_graticule = pd.DataFrame(
+                self.make_horizon_circle_points(
+                    0, az + 90, radius, 0, 360 + step, step
+                ).data
+            )
+            this_graticule.query(
+                f"(alt > {min_alt}) and (alt <= {max_alt}) and (abs(az-{az}) < 1)",
+                inplace=True,
+            )
+            this_graticule.sort_values(by="alt", inplace=True)
+            this_graticule["grat"] = f"Az{az}"
 
             graticule_list.append(this_graticule)
             graticule_list.append(stop_df)
 
         graticule_points = bokeh.models.ColumnDataSource(pd.concat(graticule_list))
         return graticule_points
-
 
     def make_circle_points(
         self,
@@ -737,7 +749,13 @@ class SphereMap:
         """
         observation_metadata = ObservationMetaData(mjd=self.mjd, site=self.site)
         if APPROX_COORD_TRANSFORMS:
-            center_ra_arr, center_decl_arr = approx_altAz2RaDec(np.array([alt]), np.array([az]), self.site.latitude, self.site.longitude, self.mjd)
+            center_ra_arr, center_decl_arr = approx_altAz2RaDec(
+                np.array([alt]),
+                np.array([az]),
+                self.site.latitude,
+                self.site.longitude,
+                self.mjd,
+            )
             center_ra = center_ra_arr[0]
             center_decl = center_decl_arr[0]
         else:
@@ -787,8 +805,9 @@ class SphereMap:
         x_moll, y_moll = self.moll_proj.ang2xy(
             points_df.ra, points_df.decl, lonlat=True
         )
-        x_hz, y_hz = self.eq_to_horizon(points_df.ra.values,
-            points_df.decl.values, degrees=True, cart=True)
+        x_hz, y_hz = self.eq_to_horizon(
+            points_df.ra.values, points_df.decl.values, degrees=True, cart=True
+        )
 
         # If point_df.ra and points_df.decl have only one value, ang2xy returns scalars (or 0d arrays)
         # not 1d arrays, but bokeh.models.ColumnDataSource requires that column values
@@ -944,7 +963,7 @@ class SphereMap:
         kwargs.update(line_kwargs)
         self.plot.line(x=self.x_col, y=self.y_col, source=graticule_points, **kwargs)
         return graticule_points
-    
+
     def add_horizon_graticules(self, graticule_kwargs={}, line_kwargs={}):
         """Add graticules to the map
 
@@ -1439,7 +1458,7 @@ class ArmillarySphere(MovingSphereMap):
             except KeyError:
                 pass
 
-    def add_sliders(self, center_alt=90, center_az=0):
+    def add_sliders(self, center_alt=90, center_az=180):
         """Add (already defined) sliders to the map."""
         super().add_sliders()
         self.sliders["alt"] = bokeh.models.Slider(
@@ -1461,9 +1480,12 @@ class ArmillarySphere(MovingSphereMap):
         )
 
 
-def make_zscale_linear_cmap(values, field_name='value', palette='Inferno256', *args, **kwargs):
+def make_zscale_linear_cmap(
+    values, field_name="value", palette="Inferno256", *args, **kwargs
+):
     zscale_interval = astropy.visualization.ZScaleInterval(*args, **kwargs)
     scale_limits = zscale_interval.get_limits(values)
-    cmap = bokeh.transform.linear_cmap(field_name, palette, scale_limits[0], scale_limits[1])
+    cmap = bokeh.transform.linear_cmap(
+        field_name, palette, scale_limits[0], scale_limits[1]
+    )
     return cmap
-    
