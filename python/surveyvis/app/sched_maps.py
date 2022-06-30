@@ -1,5 +1,4 @@
 import bokeh.plotting
-from copy import deepcopy
 import numpy as np
 import healpy as hp
 from astropy.time import Time
@@ -9,7 +8,10 @@ import pandas as pd
 import bokeh.models
 import bokeh.core.properties
 
-from rubin_sim.utils import calcLmstLast
+from rubin_sim.scheduler.modelObservatory import Model_observatory
+import rubin_sim.scheduler.schedulers
+import rubin_sim.scheduler.surveys
+import rubin_sim.scheduler.basis_functions
 
 from surveyvis.plot.SphereMap import (
     ArmillarySphere,
@@ -20,6 +22,8 @@ from surveyvis.plot.SphereMap import (
 )
 
 from surveyvis.collect import read_scheduler, read_conditions
+
+DEFAULT_MJD = 60200.2
 
 
 def make_logger():
@@ -53,16 +57,21 @@ class SchedulerMap:
         self.scheduler_healpix_maps = {}
         self.init_key = init_key
         self.map_key = init_key
-        self.mjd = Time.now().mjd
+        self.mjd = Time.now().mjd if DEFAULT_MJD is None else DEFAULT_MJD
         self.nside = nside
         self.healpix_cmap = None
         self.data_sources = {}
         self.glyphs = {}
         self.bokeh_models = {}
         self.sphere_maps = {}
+        try:
+            self.observatory = Model_observatory(mjd_start=self.mjd - 1)
+        except ValueError:
+            self.observatory = None
 
     @property
     def healpix_values(self):
+        """Healpix numpy array for the current map."""
         if len(self.scheduler_healpix_maps) == 0:
             npix = hp.nside2npix(self.nside)
             values = np.ones(npix)
@@ -71,6 +80,7 @@ class SchedulerMap:
         return self.scheduler_healpix_maps[self.map_key]
 
     def make_pickle_entry_box(self):
+        """Make the entry box for a file name from which to load state."""
         file_input_box = bokeh.models.TextInput(
             value="/media/psf/Home/devel/surveyvis/data/Scheduler:2_Scheduler:2_2022-02-18T04:55:02.699.p ",
             title="Pickle URL:",
@@ -90,13 +100,34 @@ class SchedulerMap:
         self.bokeh_models["file_input_box"] = file_input_box
 
     def load(self, file_name):
-        self.scheduler = read_scheduler(file_name)
-        self.conditions = read_conditions(file_name)
+        """Load scheduler data
+
+        Parameters
+        ----------
+        file_name : `str`
+            The file name from which to load scheduler state.
+        """
+        scheduler = read_scheduler(file_name)
+        conditions = read_conditions(file_name)
+        self.set_scheduler(scheduler, conditions)
+
+    def set_scheduler(self, scheduler, conditions=None):
+        """Set the scheduler visualized.
+
+        Parameters
+        ----------
+        scheduler : `rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler`  # noqa W505
+            The new scheduler to visualize
+        conditions : `rubin_sim.scheduler.features.conditions.Conditions`
+            THe contitions, if not those in the scheduler
+        """
+        self.scheduler = scheduler
+        self.conditions = scheduler.conditions if conditions is None else conditions
 
         # FIXME The pickle used for testing does not include several
         # required methods of the Scheduler class, so add them.
         if "get_basis_functions" not in dir(self.scheduler):
-            import surveyvis.munge.monkeypatch_rubin_sim
+            import surveyvis.munge.monkeypatch_rubin_sim  # noqa F401
 
         self.survey_index[0] = self.scheduler.survey_index[0]
         self.survey_index[1] = self.scheduler.survey_index[1]
@@ -111,6 +142,7 @@ class SchedulerMap:
         self.update_tier_selector()
 
     def update_for_new_conditions(self):
+        """Update the figure to represent changed conditions."""
         self.scheduler.update_conditions(self.conditions)
         self.update_reward_table()
         self.scheduler_healpix_maps = self.scheduler.get_healpix_maps(
@@ -128,6 +160,7 @@ class SchedulerMap:
         )
 
     def make_time_selector(self):
+        """Create the time selector slider bokeh model."""
         time_selector = bokeh.models.Slider(
             title="MJD",
             start=self.mjd - 1,
@@ -137,21 +170,24 @@ class SchedulerMap:
         )
 
         def switch_time(attrname, old, new):
-            self.conditions.mjd = new
-            self.conditions.lmst, _ = calcLmstLast(
-                self.conditions.mjd, self.conditions.site.longitude_rad
-            )
+            self.observatory.mjd = new
+            LOGGER.info("Calculating new conditions")
+            self.conditions = self.observatory.return_conditions()
+            LOGGER.info("Updating interface for new conditions")
             self.update_for_new_conditions()
+            LOGGER.info("Finished updating time")
 
         time_selector.on_change("value_throttled", switch_time)
         self.bokeh_models["time_selector"] = time_selector
 
     def update_time_selector(self):
+        """Update the time selector limits and value to match the date."""
         self.bokeh_models["time_selector"].start = self.conditions.sunset
         self.bokeh_models["time_selector"].end = self.conditions.sunrise
         self.bokeh_models["time_selector"].value = self.conditions.mjd
 
     def make_tier_selector(self):
+        """Create the tier selector bokeh model."""
         tier_selector = bokeh.models.Select(value=None, options=[None])
 
         def switch_tier(attrname, old, new):
@@ -161,17 +197,20 @@ class SchedulerMap:
         self.bokeh_models["tier_selector"] = tier_selector
 
     def update_tier_selector(self):
+        """Update tier selector to represent tiers for the current survey."""
         options = [f"tier {t}" for t in np.arange(len(self.scheduler.survey_lists))]
         self.bokeh_models["tier_selector"].options = options
         self.bokeh_models["tier_selector"].value = options[self.survey_index[0]]
 
     def select_tier(self, tier):
+        """Set the tier being displayed."""
         LOGGER.info(f"swiching tier to {tier}")
         self.survey_index[0] = self.bokeh_models["tier_selector"].options.index(tier)
         self.survey_index[1] = 0
         self.update_survey_selector()
 
     def make_survey_selector(self):
+        """Create the survey selector bokeh model."""
         survey_selector = bokeh.models.Select(value=None, options=[None])
 
         def switch_survey(attrname, old, new):
@@ -181,6 +220,7 @@ class SchedulerMap:
         self.bokeh_models["survey_selector"] = survey_selector
 
     def update_survey_selector(self):
+        """Uptade the survey selector to the current scheduler and tier."""
         options = [
             s.survey_name for s in self.scheduler.survey_lists[self.survey_index[0]]
         ]
@@ -188,6 +228,13 @@ class SchedulerMap:
         self.bokeh_models["survey_selector"].value = options[self.survey_index[1]]
 
     def select_survey(self, survey):
+        """Update the display to show a given survey.
+
+        Parameters
+        ----------
+        survey : `str`
+            The name of the survey to select.
+        """
         tier = self.survey_index[0]
         surveys_in_tier = [s.survey_name for s in self.scheduler.survey_lists[tier]]
         self.survey_index[1] = surveys_in_tier.index(survey)
@@ -217,6 +264,7 @@ class SchedulerMap:
         self.update_reward_table()
 
     def make_value_selector(self):
+        """Create the bokeh model to select which value to show in maps."""
         value_selector = bokeh.models.Select(value=None, options=[None])
 
         def switch_value(attrname, old, new):
@@ -228,6 +276,7 @@ class SchedulerMap:
         self.bokeh_models["value_selector"] = value_selector
 
     def update_value_selector(self):
+        """Update the value selector bokeh model to show available options."""
         self.bokeh_models["value_selector"].options = self.map_keys
         if self.map_key in self.map_keys:
             self.bokeh_models["value_selector"].value = self.map_key
@@ -313,8 +362,8 @@ class SchedulerMap:
             sphere_map.healpix_glyph.line_color = self.healpix_cmap
 
     def make_reward_table(self):
-        # Bokeh's DataTable doesn't like to expand to accommodate extra rows, so
-        # create a dummy with lots of rows initially.
+        # Bokeh's DataTable doesn't like to expand to accommodate extra rows,
+        # so create a dummy with lots of rows initially.
         df = pd.DataFrame(
             np.nan,
             index=range(30),
@@ -392,15 +441,18 @@ class SchedulerMap:
         controls = [
             self.bokeh_models["alt_slider"],
             self.bokeh_models["az_slider"],
-            self.bokeh_models["time_selector"],
+        ]
+
+        if self.observatory is not None:
+            controls.append(self.bokeh_models["time_selector"])
+
+        controls += [
             self.bokeh_models["lst_slider"],
             self.bokeh_models["file_input_box"],
             self.bokeh_models["tier_selector"],
             self.bokeh_models["survey_selector"],
             self.bokeh_models["value_selector"],
         ]
-
-        # self.load('/media/psf/Home/devel/surveyvis/data/Scheduler:2_Scheduler:2_2022-02-18T04:55:02.699.p')
 
         figure = bokeh.layouts.row(
             bokeh.layouts.column(
@@ -421,13 +473,14 @@ class SchedulerMap:
 def make_scheduler_map_figure(
     scheduler_pickle_fname=None, init_key="AvoidDirectWind", nside=16
 ):
-    """Create a set of bekeh figures showing sky maps relevant to scheduler behavior.
+    """Create a set of bekeh figures showing sky maps for scheduler behavior.
 
     Parameters
     ----------
     scheduler_pickle_fname : `str`, optional
-        File from which to load the scheduler state. If set to none, look for the file
-        name in the ``SCHED_PICKLE`` environment variable. By default None
+        File from which to load the scheduler state. If set to none, look for
+        the file name in the ``SCHED_PICKLE`` environment variable.
+        By default None
     init_key : `str`, optional
         Name of the initial map to show, by default 'AvoidDirectWind'
     nside : int, optional
@@ -436,16 +489,20 @@ def make_scheduler_map_figure(
     Returns
     -------
     fig : `bokeh.models.layouts.LayoutDOM`
-        A bokeh figure that can be displayed in a notebook (e.g. with ``bokeh.io.show``) or used
-        to create a bokeh app.
+        A bokeh figure that can be displayed in a notebook (e.g. with
+        ``bokeh.io.show``) or used to create a bokeh app.
     """
     scheduler_map = SchedulerMap()
+    figure = scheduler_map.make_figure()
+
     if scheduler_pickle_fname is not None:
         scheduler_map.load(scheduler_pickle_fname)
-
-    # switch_value("value", init_key, init_key)
-
-    figure = scheduler_map.make_figure()
+    else:
+        try:
+            scheduler = make_default_scheduler(scheduler_map.mjd)
+            scheduler_map.set_scheduler(scheduler)
+        except ValueError:
+            pass
 
     return figure
 
@@ -460,6 +517,29 @@ def add_scheduler_map_app(doc):
     """
     figure = make_scheduler_map_figure()
     doc.add_root(figure)
+
+
+def make_default_scheduler(mjd, nside=32):
+    """Return default scheduler.
+
+    Parameters
+    ----------
+    mjd : `float`
+        The MJD.
+    nside : `int`
+        The healpix nside
+
+    Returns
+    -------
+    scheduler : `rubin_sim.scheduler.schedulers.Core_scheduler`
+    """
+    survey = rubin_sim.scheduler.surveys.BaseSurvey([])
+    scheduler = rubin_sim.scheduler.schedulers.Core_scheduler([survey], nside=nside)
+    observatory = Model_observatory(mjd_start=mjd - 1)
+    observatory.mjd = mjd
+    conditions = observatory.return_conditions()
+    scheduler.update_conditions(conditions)
+    return scheduler
 
 
 if __name__.startswith("bokeh_app_"):

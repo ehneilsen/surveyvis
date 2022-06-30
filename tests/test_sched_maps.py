@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 from pathlib import Path
 import bokeh.plotting
 import bokeh.io
-from surveyvis.app.sched_maps import make_scheduler_map_figure, add_scheduler_map_app
+from surveyvis.app.sched_maps import make_scheduler_map_figure
 
 
 class test_sched_maps(unittest.TestCase):

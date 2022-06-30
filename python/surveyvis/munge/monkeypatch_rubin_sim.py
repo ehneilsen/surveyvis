@@ -5,7 +5,6 @@ from copy import deepcopy
 import pandas as pd
 import numpy as np
 import healpy as hp
-from astropy.time import Time
 
 import rubin_sim
 import rubin_sim.scheduler
@@ -16,23 +15,25 @@ import rubin_sim.scheduler.basis_functions
 
 class Core_scheduler(rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler):
     def get_basis_functions(self, survey_index=None, conditions=None):
-        """Get the basis functions for a specific survey, in provided conditions.
+        """Get basis functions for a specific survey in provided conditions.
 
         Parameters
         ----------
         survey_index : `List` [`int`], optional
-            A list with two elements: the survey list and the element within that
-            survey list for which the basis function should be retrieved. If ``None``,
-            use the latest survey to make an addition to the queue.
-        conditions : `rubin_sim.scheduler.features.conditions.Conditions`, optional
-            The conditions for which to return the basis functions. If ``None``, use
-            the conditions associated with this sceduler. By default None.
+            A list with two elements: the survey list and the element within
+            that survey list for which the basis function should be retrieved.
+            If ``None``, use the latest survey to make an addition to the
+            queue.
+        conditions : `rubin_sim.scheduler.features.conditions.Conditions`, optional  # noqa W505
+            The conditions for which to return the basis functions.
+            If ``None``, use the conditions associated with this sceduler.
+            By default None.
 
         Returns
         -------
-        basis_funcs : `OrderedDict` ['str`, `rubin_sim.scheduler.basis_functions.basis_functions.Base_basis_function`]
-            A dictionary of the basis functions, where the keys are names for the basis functions and the values
-            are the functions themselves.
+        basis_funcs : `OrderedDict` ['str`, `rubin_sim.scheduler.basis_functions.basis_functions.Base_basis_function`]  # noqa W505
+            A dictionary of the basis functions, where the keys are names for
+            the basis functions and the values are the functions themselves.
         """
         if survey_index is None:
             survey_index = self.survey_index
@@ -53,10 +54,11 @@ class Core_scheduler(rubin_sim.scheduler.schedulers.core_scheduler.Core_schedule
         Parameters
         ----------
         survey_index : `List` [`int`], optional
-            A list with two elements: the survey list and the element within that
-            survey list for which the maps that should be retrieved. If ``None``,
-            use the latest survey to make an addition to the queue.
-        conditions : `rubin_sim.scheduler.features.conditions.Conditions`, optional
+            A list with two elements: the survey list and the element within
+            that survey list for which the maps that should be retrieved.
+            If ``None``, use the latest survey to make an addition to
+            the queue.
+        conditions : `rubin_sim.scheduler.features.conditions.Conditions`, optional  # noqa W505
             The conditions for the maps to be returned. If ``None``, use
             the conditions associated with this sceduler. By default None.
 
@@ -450,7 +452,9 @@ class BaseMarkovDF_survey(rubin_sim.scheduler.surveys.BaseMarkovDF_survey):
 
 class Deep_drilling_survey(rubin_sim.scheduler.surveys.Deep_drilling_survey):
     def __repr__(self):
-        return f"<{self.__class__.__name__} survey_name='{self.survey_name}', RA={self.ra}, dec={self.dec} at {hex(id(self))}>"
+        repr_start = f"<{self.__class__.__name__} survey_name='{self.survey_name}'"
+        repr_end = f", RA={self.ra}, dec={self.dec} at {hex(id(self))}>"
+        return repr_start + repr_end
 
 
 class Base_basis_function(rubin_sim.scheduler.basis_functions.Base_basis_function):
@@ -493,7 +497,6 @@ rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler.make_reward_df = (
     Core_scheduler.make_reward_df
 )
 
-# rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler._ipython_display_= Core_scheduler._ipython_display_
 rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler._repr_markdown_ = (
     Core_scheduler._repr_markdown_
 )

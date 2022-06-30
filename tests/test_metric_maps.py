@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 from pathlib import Path
 import bokeh.plotting
 import bokeh.io
-from surveyvis.app.metric_maps import make_metric_figure, add_metric_app
+from surveyvis.app.metric_maps import make_metric_figure
 
 
 class test_metric_maps(unittest.TestCase):

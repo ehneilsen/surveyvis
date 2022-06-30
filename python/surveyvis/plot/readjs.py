@@ -14,7 +14,6 @@ def read_javascript(fname):
     js_code : `str`
         The loaded source code.
     """
-
     root_package = __package__.split(".")[0]
 
     try:
@@ -25,7 +24,8 @@ def read_javascript(fname):
         root_package = __package__.split(".")[0]
 
         with importlib.resources.path(root_package, ".") as root_path:
-            # Check that our inference that we are in a project directory is right
+            # Check that our inference that we are in a
+            # project directory is right
             assert root_path.parent.parent.joinpath("python", root_package).is_dir()
 
             full_name = root_path.parent.parent.joinpath("js", fname)

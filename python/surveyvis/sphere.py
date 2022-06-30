@@ -41,8 +41,8 @@ def offset_sep_bear(ra, decl, sep, bearing, degrees=False):
     )
     new_decl = np.pi / 2 - new_np_sep
 
-    # use tan = sin/cos, sin rule to get sin, cos rule to get cos, cancel sin(np_sep) to avoid
-    # problems when new_np_sep=90 deg.
+    # use tan = sin/cos, sin rule to get sin, cos rule to get cos,
+    # cancel sin(np_sep) to avoid problems when new_np_sep=90 deg.
     dra = np.arctan2(
         np.sin(sep) * np.sin(bearing) * np.sin(np_sep),
         np.cos(sep) - np.cos(new_np_sep) * np.cos(np_sep),

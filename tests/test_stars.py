@@ -1,12 +1,12 @@
 import unittest
 from surveyvis.collect.stars import load_bright_stars
 
+
 class test_stars(unittest.TestCase):
-    
     def test_load_stars(self):
         stars = load_bright_stars()
         self.assertGreater(len(stars), 9000)
-        for column_name in ('name', 'ra', 'decl', 'Vmag'):
+        for column_name in ("name", "ra", "decl", "Vmag"):
             self.assertIn(column_name, stars.columns)
         self.assertGreaterEqual(stars.ra.min(), 0)
         self.assertLessEqual(stars.ra.min(), 1)
@@ -18,6 +18,7 @@ class test_stars(unittest.TestCase):
         self.assertLessEqual(stars.decl.max(), 90)
         self.assertGreaterEqual(stars.Vmag.min(), -2)
         self.assertLessEqual(stars.Vmag.max(), 10)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,4 @@
 import unittest
-import random
-from collections import namedtuple
 
 import numpy as np
 import healpy as hp
@@ -10,15 +8,17 @@ from numpy.random import default_rng
 
 from surveyvis import sphere
 
+
 def _random_point_on_sphere(rng):
     # Not slick or efficient, but it works
     mag = np.inf
     while mag > 1:
         vec = rng.uniform(-1, 1, 3)
         mag = np.linalg.norm(vec)
-                
-    vec = vec/mag
+
+    vec = vec / mag
     return vec
+
 
 class test_sphere(unittest.TestCase):
     def test_offset_sep_bear(self):
@@ -55,36 +55,35 @@ class test_sphere(unittest.TestCase):
     def test_rotate_cart(self):
         rng = default_rng(4861)
         num_test_values = 100
-        
+
         for i in range(num_test_values):
             vec0 = _random_point_on_sphere(rng)
             axis = _random_point_on_sphere(rng)
             angle = rng.uniform(-360, 360)
             vec1 = np.array(
-                sphere.rotate_cart(axis[0], axis[1], axis[2], angle, vec0[0], vec0[1], vec0[2])
+                sphere.rotate_cart(
+                    axis[0], axis[1], axis[2], angle, vec0[0], vec0[1], vec0[2]
+                )
             )
             self.assertAlmostEqual(np.linalg.norm(vec1), 1.0)
             self.assertAlmostEqual(axis.dot(vec0), axis.dot(vec1))
-            
+
         np.testing.assert_almost_equal(
-            np.array(sphere.rotate_cart(0, 0, 1, 90, 1, 0, 0)),
-            np.array((0, 1, 0))
+            np.array(sphere.rotate_cart(0, 0, 1, 90, 1, 0, 0)), np.array((0, 1, 0))
         )
 
         np.testing.assert_almost_equal(
-            np.array(sphere.rotate_cart(0, 0, 1, 180, 1, 0, 0)),
-            np.array((-1, 0, 0))
+            np.array(sphere.rotate_cart(0, 0, 1, 180, 1, 0, 0)), np.array((-1, 0, 0))
         )
 
         np.testing.assert_almost_equal(
-            np.array(sphere.rotate_cart(0, 0, 1, 90, 1, 0, 0)),
-            np.array((0, 1, 0))
+            np.array(sphere.rotate_cart(0, 0, 1, 90, 1, 0, 0)), np.array((0, 1, 0))
         )
 
         np.testing.assert_almost_equal(
-            np.array(sphere.rotate_cart(1, 0, 0, 90, 0, 1, 0)),
-            np.array((0, 0, 1))
+            np.array(sphere.rotate_cart(1, 0, 0, 90, 0, 1, 0)), np.array((0, 0, 1))
         )
+
 
 if __name__ == "__main__":
     unittest.main()

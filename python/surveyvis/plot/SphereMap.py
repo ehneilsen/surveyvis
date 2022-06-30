@@ -1,6 +1,6 @@
 from collections import OrderedDict, namedtuple
+from collections.abc import Iterable
 from copy import deepcopy
-from xml.etree.ElementTree import ProcessingInstruction
 
 import numpy as np
 import pandas as pd
@@ -46,8 +46,8 @@ class SphereMap:
         plot : `bokeh.plotting.figure.Figure`, optional
             Figure to which to add the map, by default None
         laea_limit_mag : `float`, optional
-            Magnitude of the limit for Lamber azimuthal equal area plots, in degrees.
-            By default 88.
+            Magnitude of the limit for Lamber azimuthal equal area plots,
+            in degrees. By default 88.
         mjd : `float`, option
             The Modified Julian Date
         site : `rubin_sim.utils.Site.Site`, optional
@@ -87,7 +87,7 @@ class SphereMap:
 
     @lst.setter
     def lst(self, value):
-        """Modify the MJD to match the requested LST, keeping the same (UT) day."""
+        """Modify the MJD to match the LST, keeping the same (UT) day."""
         mjd_start = np.floor(self.mjd)
         lst_start = calcLmstLast(mjd_start, self.site.longitude_rad)[1] * 360.0 / 24.0
         self.mjd = mjd_start + ((value - lst_start) % 360) / 360.9856405809225
@@ -106,7 +106,7 @@ class SphereMap:
 
     @property
     def laea_rot(self):
-        """Return the `rot` tuple to be used in the Lambert Azimuthal Equal Area projection
+        """Return the `rot` tuple to be used in the Lambert EA projection
 
         Returns
         -------
@@ -118,7 +118,7 @@ class SphereMap:
 
     @property
     def laea_limit(self):
-        """Return the latitude furthest from the center for the LAEA projection.
+        """Return the lat. furthest from the center for the LAEA projection.
 
         Returns
         -------
@@ -167,11 +167,11 @@ class SphereMap:
         )
         x3, y3, z3 = rotate_cart(npole_x2, npole_y2, npole_z2, -self.lst, x2, y2, z2)
 
-        # In astronomy, we are looking out of the sphere from the center to the back
-        # (which naturally results in west to the right).
+        # In astronomy, we are looking out of the sphere from the center to the
+        # back (which naturally results in west to the right).
         # Positive z is out of the screen behind us, and we are at the center,
         # so to visible part is when z is negative (coords[2]<=0).
-        # So, stuff the points with positive z to NaN so they are
+        # So, set the points with positive z to NaN so they are
         # not shown, because they are behind the observer.
 
         # Use np.finfo(z3[0]).resolution instead of exactly 0, because the
@@ -197,7 +197,8 @@ class SphereMap:
         decl : `numpy.ndarray`
             Values for declination
         degrees : bool, optional
-            Values are in degrees (if False, values are in radians), by default True
+            Values are in degrees (if False, values are in radians),
+            by default True
         cart : bool, optional
             Return cartesion coordinates rather than alt, az, by default True
 
@@ -226,10 +227,10 @@ class SphereMap:
             ra_deg, decl_deg = np.degrees(ra), np.degrees(decl)
         if APPROX_COORD_TRANSFORMS:
             alt, az = approx_RaDec2AltAz(
-                ra, decl, self.site.latitude, self.site.longitude, self.mjd
+                ra_deg, decl_deg, self.site.latitude, self.site.longitude, self.mjd
             )
         else:
-            alt, az, _ = altAzPaFromRaDec(ra, decl, observation_metadata)
+            alt, az, _ = altAzPaFromRaDec(ra_deg, decl_deg, observation_metadata)
 
         if cart:
             zd = np.pi / 2 - np.radians(alt)
@@ -247,7 +248,7 @@ class SphereMap:
         return alt, az
 
     def make_healpix_data_source(self, hpvalues, nside=32, bound_step=1):
-        """Make a bokeh data source of healpixel values, corners, and projected coords.
+        """Make a data source of healpix values, corners, and projected coords.
 
         Parameters
         ----------
@@ -725,7 +726,7 @@ class SphereMap:
     def make_horizon_circle_points(
         self, alt=90, az=0, radius=90.0, start_bear=0, end_bear=360, step=1
     ):
-        """Define points in a circle with the center defined in horizon coordinates.
+        """Define points in a circle with the center defined in horizon coords.
 
         Parameters
         ----------
@@ -782,7 +783,7 @@ class SphereMap:
         Parameters
         ----------
         points_data : `Iterable` , `dict` , or `pandas.DataFrame`
-            A source of data (anything that can be passed to `pandas.DataFrame`)
+            A source of data (to be passed to `pandas.DataFrame`)
             Must contain the following columns or keys:
 
             ``"ra"``
@@ -793,7 +794,7 @@ class SphereMap:
         Returns
         -------
         point : `bokeh.models.ColumnDataSource`
-            A data source with point locations, including projected coordinates.
+            A data source with point locations, including projected coords.
         """
         points_df = pd.DataFrame(points_data)
         x0s, y0s, z0s = hp.ang2vec(points_df.ra, points_df.decl, lonlat=True).T
@@ -809,10 +810,11 @@ class SphereMap:
             points_df.ra.values, points_df.decl.values, degrees=True, cart=True
         )
 
-        # If point_df.ra and points_df.decl have only one value, ang2xy returns scalars (or 0d arrays)
-        # not 1d arrays, but bokeh.models.ColumnDataSource requires that column values
-        # be python Sequences. So force results of ang2xy to be 1d arrays, even when
-        # healpy returns 0d arrays.
+        # If point_df.ra and points_df.decl have only one value, ang2xy returns
+        # scalars (or 0d arrays) not 1d arrays, but
+        # bokeh.models.ColumnDataSource requires that column values
+        # be python Sequences. So force results of ang2xy to be 1d arrays,
+        # even when healpy returns 0d arrays.
         x_laea = x_laea.reshape(x_laea.size)
         y_laea = y_laea.reshape(y_laea.size)
         x_moll = x_moll.reshape(x_moll.size)
@@ -1024,7 +1026,8 @@ class SphereMap:
             None if the should be generated.
             By default, None
         circle_kwargs : dict, optional
-            Keywords to be passed to ``SphereMap.make_circle_points``, by default {}
+            Keywords to be passed to ``SphereMap.make_circle_points``,
+            by default {}
         line_kwargs : dict, optional
             Keywords to be passed to ``bokeh.plotting.figure.Figure.line``,
             by default {}
@@ -1073,12 +1076,13 @@ class SphereMap:
             Data source for the marker, None if a new one is to be generated.
             By default, None
         circle_kwargs : dict, optional
-            Keywords to be passed to ``bokeh.plotting.figure.Figure.circle``, by default {}
+            Keywords to be passed to ``bokeh.plotting.figure.Figure.circle``,
+            by default {}
 
         Returns
         -------
         data_source : `bokeh.models.ColumnDataSource`
-            A data source with marker locations, including projected coordinates.
+            A data source with marker locations, including projected coords.
         """
         if data_source is None:
             ras = ra if isinstance(ra, Iterable) else [ra]
@@ -1109,7 +1113,8 @@ class SphereMap:
         Parameters
         ----------
         points_data : `Iterable` , `dict` , or `pandas.DataFrame`
-            A source of data (anything that can be passed to `pandas.DataFrame`)
+            A source of data (anything that can be passed to
+            `pandas.DataFrame`)
             Must contain the following columns or keys:
 
             ``"ra"``
@@ -1322,7 +1327,8 @@ class MovingSphereMap(SphereMap):
         Parameters
         ----------
         points_data : `Iterable` , `dict` , or `pandas.DataFrame`
-            A source of data (anything that can be passed to `pandas.DataFrame`)
+            A source of data (anything that can be passed to
+            `pandas.DataFrame`)
             Must contain the following columns or keys:
 
             ``"ra"``
@@ -1374,12 +1380,13 @@ class MovingSphereMap(SphereMap):
             Data source for the marker, None if a new one is to be generated.
             By default, None
         circle_kwargs : dict, optional
-            Keywords to be passed to ``bokeh.plotting.figure.Figure.circle``, by default {}
+            Keywords to be passed to ``bokeh.plotting.figure.Figure.circle``,
+            by default {}
 
         Returns
         -------
         data_source : `bokeh.models.ColumnDataSource`
-            A data source with marker locations, including projected coordinates.
+            A data source with marker locations, including projected coords.
         """
         data_source = super().add_marker(
             ra, decl, name, glyph_size, data_source, circle_kwargs

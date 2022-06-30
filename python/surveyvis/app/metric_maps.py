@@ -1,7 +1,5 @@
 import os
 import bokeh.plotting
-import astropy.units as u
-from astropy.coordinates import SkyCoord
 
 from rubin_sim import maf
 
@@ -26,14 +24,14 @@ def make_metric_figure(metric_values_fname=None, nside=8, mag_limit_slider=True)
     Returns
     -------
     fig : `bokeh.models.layouts.LayoutDOM`
-        A bokeh figure that can be displayed in a notebook (e.g. with ``bokeh.io.show``) or used
-        to create a bokeh app.
+        A bokeh figure that can be displayed in a notebook (e.g. with
+        ``bokeh.io.show``) or used to create a bokeh app.
 
     Notes
     -----
-    If ``mag_limit_slider`` is ``True``, it creates a magnitude limit slider for the stars.
-    This is implemented as a python callback, and so is only operational in full bokeh app,
-    not standalone output.
+    If ``mag_limit_slider`` is ``True``, it creates a magnitude limit
+    slider for the stars. This is implemented as a python callback, and
+    so is only operational in full bokeh app, not standalone output.
     """
 
     if metric_values_fname is None:
