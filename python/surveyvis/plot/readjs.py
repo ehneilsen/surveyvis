@@ -18,7 +18,7 @@ def read_javascript(fname):
 
     try:
         # Standard python site-packages location
-        js_code = importlib.resources.read_text(root_package, fname)
+        js_code = importlib.resources.read_text(root_package + ".js", fname)
     except FileNotFoundError:
         # infer we are in a project directory
         root_package = __package__.split(".")[0]
