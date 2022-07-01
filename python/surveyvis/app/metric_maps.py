@@ -1,10 +1,12 @@
 import os
+import importlib.resources
 import bokeh.plotting
 
 from rubin_sim import maf
 
 from surveyvis.plot.SphereMap import ArmillarySphere, Planisphere, MollweideMap
 from surveyvis.collect.stars import load_bright_stars
+from surveyvis.collect import get_metric_path
 
 
 def make_metric_figure(metric_values_fname=None, nside=8, mag_limit_slider=True):
@@ -35,7 +37,7 @@ def make_metric_figure(metric_values_fname=None, nside=8, mag_limit_slider=True)
     """
 
     if metric_values_fname is None:
-        metric_values_fname = os.environ["METRIC_FNAME"]
+        metric_values_fname = get_metric_path()      
 
     healpy_values = maf.MetricBundle.load(metric_values_fname).metricValues
 
