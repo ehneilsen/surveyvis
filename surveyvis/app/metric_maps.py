@@ -1,5 +1,3 @@
-import os
-import importlib.resources
 import bokeh.plotting
 
 from rubin_sim import maf
@@ -37,7 +35,7 @@ def make_metric_figure(metric_values_fname=None, nside=8, mag_limit_slider=True)
     """
 
     if metric_values_fname is None:
-        metric_values_fname = get_metric_path()      
+        metric_values_fname = get_metric_path()
 
     healpy_values = maf.MetricBundle.load(metric_values_fname).metricValues
 
