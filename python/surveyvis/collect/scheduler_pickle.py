@@ -1,7 +1,9 @@
 import pickle
 import os
+import gzip
+import importlib.resources
 
-__all__ = ["read_scheduler", "read_conditions"]
+__all__ = ["read_scheduler", "read_conditions", "sample_pickle"]
 
 try:
     PICKLE_FNAME = os.environ["SCHED_PICKLE"]
@@ -25,7 +27,12 @@ def read_scheduler(file_name=None):
     if file_name is None:
         file_name = PICKLE_FNAME
 
-    with open(file_name, "rb") as pio:
+    if file_name is None:
+        file_name = sample_pickle()
+
+    opener = gzip.open if file_name.endswith('.gz') else open
+
+    with opener(file_name, "rb") as pio:
         scheduler, _ = pickle.load(pio)
 
     return scheduler
@@ -47,7 +54,25 @@ def read_conditions(file_name=None):
     if file_name is None:
         file_name = PICKLE_FNAME
 
-    with open(file_name, "rb") as pio:
+    if file_name is None:
+        file_name = sample_pickle()
+
+    opener = gzip.open if file_name.endswith('.gz') else open
+
+    with opener(file_name, "rb") as pio:
         _, conditions = pickle.load(pio)
 
     return conditions
+
+def sample_pickle():
+    """Return the path of the sample pickle
+    
+    Returns
+    -------
+    fname : `str`
+        File name of the sample pickle.
+    """
+    root_package = __package__.split(".")[0]
+    with importlib.resources.path(root_package + '.data', 'scheduler.pickle.gz') as pickle_path:
+        path_string = str(pickle_path)
+    return path_string

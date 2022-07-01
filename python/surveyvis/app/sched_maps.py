@@ -21,7 +21,7 @@ from surveyvis.plot.SphereMap import (
     make_zscale_linear_cmap,
 )
 
-from surveyvis.collect import read_scheduler, read_conditions
+from surveyvis.collect import read_scheduler, read_conditions, sample_pickle
 
 DEFAULT_MJD = 60200.2
 
@@ -82,8 +82,8 @@ class SchedulerMap:
     def make_pickle_entry_box(self):
         """Make the entry box for a file name from which to load state."""
         file_input_box = bokeh.models.TextInput(
-            value="/media/psf/Home/devel/surveyvis/data/Scheduler:2_Scheduler:2_2022-02-18T04:55:02.699.p ",
-            title="Pickle URL:",
+            value=sample_pickle()+' ',
+            title="Pickle path:",
         )
 
         def switch_pickle(attrname, old, new):
