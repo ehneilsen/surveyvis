@@ -11,9 +11,9 @@ an outline.
 
 There are presently two different applications in this project:
 
-- *metric_maps*, a tool for visualizing metric output of MAF that takes the form
+- `metric_maps`, a tool for visualizing metric output of MAF that takes the form
 of a sky map.
-- *sched_maps*, a tool for examing some elements of the state of objects used by
+- `sched_maps`, a tool for examing some elements of the state of objects used by
 the scheduler, particularly those that take the form of a sky map, although some
 indications of other elements are also present.
 
@@ -80,7 +80,7 @@ solution, and will be replaced soon.
 Activate the environment, and start the `bokeh` app. If `SURVEYVIS_DIR` is the
 directory into which you cloned the `surveyvis` github repository, then:
 
-    $ conda activate surveyvis
+    $ conda activate surveyvis080a2
     $ bokeh serve ${SURVEYVIS_DIR}/surveyvis/app/metric_maps.py
 
 The app will then give you the URL at which you can find the app.
