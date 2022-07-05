@@ -81,6 +81,6 @@ Activate the environment, and start the `bokeh` app. If `SURVEYVIS_DIR` is the
 directory into which you cloned the `surveyvis` github repository, then:
 
     $ conda activate surveyvis080a2
-    $ bokeh serve ${SURVEYVIS_DIR}/surveyvis/app/metric_maps.py
+    $ bokeh serve ${SURVEYVIS_DIR}/surveyvis/app/sched_maps.py
 
 The app will then give you the URL at which you can find the app.
