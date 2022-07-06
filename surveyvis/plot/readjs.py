@@ -15,24 +15,21 @@ def read_javascript(fname):
         The loaded source code.
     """
     root_package = __package__.split(".")[0]
-
+    
     try:
-        # Standard python site-packages location
-        with importlib.resources.path(root_package, ".") as root_path:
-            js_path = root_path.joinpath("js", fname)
-            with open(js_path, "r") as js_io:
+        js_path = importlib.resources.files(root_package).joinpath('js', fname)
+        with importlib.resources.as_file(js_path) as js_file_path:
+            with open(js_file_path, 'r') as js_io:
                 js_code = js_io.read()
-    except FileNotFoundError:
-        # infer we are in a project directory
-        root_package = __package__.split(".")[0]
+    except AttributeError as e:
+        # If we are using an older version of importlib, we need to do
+        # this instead:
+        if e.args[0] != "module 'importlib.resources' has no attribute 'files'":
+            raise e
 
         with importlib.resources.path(root_package, ".") as root_path:
-            # Check that our inference that we are in a
-            # project directory is right
-            assert root_path.parent.parent.joinpath("python", root_package).is_dir()
-
-            full_name = root_path.parent.parent.joinpath("js", fname)
+            full_name = root_path.joinpath("js", fname)
             with open(full_name, "r") as js_io:
                 js_code = js_io.read()
-
+                
     return js_code

@@ -73,8 +73,18 @@ def sample_pickle():
     fname : `str`
         File name of the sample pickle.
     """
+    base_fname = 'scheduler.pickle.gz'
     root_package = __package__.split(".")[0]
-    with importlib.resources.path(root_package, ".") as package_path:
-        pickle_path = package_path.joinpath("data", "scheduler.pickle.gz")
-        path_string = str(pickle_path)
-    return path_string
+
+    try:
+        fname = str(importlib.resources.files(root_package).joinpath('data', base_fname))
+    except AttributeError as e:
+        # If we are using an older version of importlib, we need to do
+        # this instead:
+        if e.args[0] != "module 'importlib.resources' has no attribute 'files'":
+            raise e
+
+        with importlib.resources.path(root_package, ".") as root_path:
+            fname = str(root_path.joinpath("data", base_fname))
+                
+    return fname
