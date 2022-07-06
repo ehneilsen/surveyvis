@@ -13,6 +13,7 @@ import rubin_sim.scheduler.schedulers
 import rubin_sim.scheduler.surveys
 import rubin_sim.scheduler.basis_functions
 
+
 from surveyvis.plot.SphereMap import (
     ArmillarySphere,
     HorizonMap,
@@ -502,6 +503,7 @@ def make_scheduler_map_figure(
             scheduler = make_default_scheduler(scheduler_map.mjd)
             scheduler_map.set_scheduler(scheduler)
         except ValueError:
+            breakpoint()
             pass
 
     return figure
@@ -533,8 +535,26 @@ def make_default_scheduler(mjd, nside=32):
     -------
     scheduler : `rubin_sim.scheduler.schedulers.Core_scheduler`
     """
-    survey = rubin_sim.scheduler.surveys.BaseSurvey([])
-    scheduler = rubin_sim.scheduler.schedulers.Core_scheduler([survey], nside=nside)
+    def make_band_survey(band):
+        survey = rubin_sim.scheduler.surveys.BaseSurvey(
+            [rubin_sim.scheduler.basis_functions.M5_diff_basis_function(
+                filtername=band,
+                nside=nside),
+                rubin_sim.scheduler.basis_functions.Ecliptic_basis_function(
+                nside=nside)],
+            survey_name=band)
+        return survey
+    
+    band_surveys = {b: make_band_survey(b) for b in 'ugrizy'}
+    visible_surveys = [band_surveys['u'],
+                       band_surveys['g'],
+                       band_surveys['r']]
+    ir_surveys = [band_surveys['i'],
+                  band_surveys['z'],
+                  band_surveys['y']]    
+
+    scheduler = rubin_sim.scheduler.schedulers.Core_scheduler(
+        [visible_surveys, ir_surveys], nside=nside)
     observatory = Model_observatory(mjd_start=mjd - 1)
     observatory.mjd = mjd
     conditions = observatory.return_conditions()
