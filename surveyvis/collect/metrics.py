@@ -17,8 +17,20 @@ def get_metric_path():
 
     root_package = __package__.split(".")[0]
     base_fname = "baseline_v2_0_10yrs_CoaddM5_r_HEAL.npz"
-    with importlib.resources.path(root_package, ".") as root_path:
-        pickle_path = root_path.joinpath("data", base_fname)
-        metric_values_fname = str(pickle_path)
 
-    return metric_values_fname
+    try:
+        fname = str(
+            importlib.resources.files(root_package).joinpath("data", base_fname)
+        )
+    except AttributeError as e:
+        # If we are using an older version of importlib, we need to do
+        # this instead:
+        if e.args[0] != "module 'importlib.resources' has no attribute 'files'":
+            raise e
+
+        with importlib.resources.path(root_package, ".") as root_path:
+            fname = str(root_path.joinpath("data", base_fname))
+
+    return fname
+
+    return fname
