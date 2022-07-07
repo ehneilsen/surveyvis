@@ -149,8 +149,12 @@ class SchedulerMap:
         self.scheduler_healpix_maps = self.scheduler.get_healpix_maps(
             survey_index=self.survey_index, conditions=self.conditions
         )
+
+        # If the current map is no longer valid, pick a valid one.
+        # Otherwise, keep displaying the same map.
         self.map_keys = list(self.scheduler_healpix_maps.keys())
-        self.map_key = self.map_keys[-1]
+        if self.map_key not in self.map_keys:
+            self.map_key = self.map_keys[-1]
 
         self.mjd = self.conditions.mjd
         for sphere_map in self.sphere_maps.values():
@@ -159,6 +163,9 @@ class SchedulerMap:
         self.sphere_maps["armillary_sphere"].sliders["lst"].value = (
             self.sphere_maps["armillary_sphere"].lst * 24.0 / 360.0
         )
+
+        # Actually push the change out to the user's browser
+        self.update_healpix_data()
 
     def make_time_selector(self):
         """Create the time selector slider bokeh model."""
@@ -535,26 +542,28 @@ def make_default_scheduler(mjd, nside=32):
     -------
     scheduler : `rubin_sim.scheduler.schedulers.Core_scheduler`
     """
+
     def make_band_survey(band):
         survey = rubin_sim.scheduler.surveys.BaseSurvey(
-            [rubin_sim.scheduler.basis_functions.M5_diff_basis_function(
-                filtername=band,
-                nside=nside),
+            [
+                rubin_sim.scheduler.basis_functions.M5_diff_basis_function(
+                    filtername=band, nside=nside
+                ),
                 rubin_sim.scheduler.basis_functions.Ecliptic_basis_function(
-                nside=nside)],
-            survey_name=band)
+                    nside=nside
+                ),
+            ],
+            survey_name=band,
+        )
         return survey
-    
-    band_surveys = {b: make_band_survey(b) for b in 'ugrizy'}
-    visible_surveys = [band_surveys['u'],
-                       band_surveys['g'],
-                       band_surveys['r']]
-    ir_surveys = [band_surveys['i'],
-                  band_surveys['z'],
-                  band_surveys['y']]    
+
+    band_surveys = {b: make_band_survey(b) for b in "ugrizy"}
+    visible_surveys = [band_surveys["u"], band_surveys["g"], band_surveys["r"]]
+    ir_surveys = [band_surveys["i"], band_surveys["z"], band_surveys["y"]]
 
     scheduler = rubin_sim.scheduler.schedulers.Core_scheduler(
-        [visible_surveys, ir_surveys], nside=nside)
+        [visible_surveys, ir_surveys], nside=nside
+    )
     observatory = Model_observatory(mjd_start=mjd - 1)
     observatory.mjd = mjd
     conditions = observatory.return_conditions()

@@ -15,11 +15,11 @@ def read_javascript(fname):
         The loaded source code.
     """
     root_package = __package__.split(".")[0]
-    
+
     try:
-        js_path = importlib.resources.files(root_package).joinpath('js', fname)
+        js_path = importlib.resources.files(root_package).joinpath("js", fname)
         with importlib.resources.as_file(js_path) as js_file_path:
-            with open(js_file_path, 'r') as js_io:
+            with open(js_file_path, "r") as js_io:
                 js_code = js_io.read()
     except AttributeError as e:
         # If we are using an older version of importlib, we need to do
@@ -31,5 +31,5 @@ def read_javascript(fname):
             full_name = root_path.joinpath("js", fname)
             with open(full_name, "r") as js_io:
                 js_code = js_io.read()
-                
+
     return js_code
