@@ -58,7 +58,7 @@ class SchedulerMap:
         self.scheduler_healpix_maps = {}
         self.init_key = init_key
         self.map_key = init_key
-        self.mjd = Time.now().mjd if DEFAULT_MJD is None else DEFAULT_MJD
+        self._mjd = Time.now().mjd if DEFAULT_MJD is None else DEFAULT_MJD
         self.nside = nside
         self.healpix_cmap = None
         self.data_sources = {}
@@ -69,6 +69,37 @@ class SchedulerMap:
             self.observatory = Model_observatory(mjd_start=self.mjd - 1)
         except ValueError:
             self.observatory = None
+
+    @property
+    def mjd(self):
+        return self._mjd
+
+    @mjd.setter
+    def mjd(self, value):
+        """Update the interface for a new date
+
+        Parameters
+        ----------
+        value : `float`
+            The new MJD
+        """
+        if value != self._mjd:
+
+            # Update conditions if we need to, and we can
+            if self.conditions.mjd != value:
+                if self.observatory is not None:
+                    self.observatory.mjd = value
+                    LOGGER.info("Calculating new conditions")
+                    self.conditions = self.observatory.return_conditions()
+                    LOGGER.info("Updating interface for new conditions")
+
+                    # update_for_new_conditions sets self._mjd
+                    # (among other things)
+                    self.update_for_new_conditions()
+
+                    LOGGER.info("Finished updating conditions")
+                else:
+                    LOGGER.warning("Cannot update conditions for new MJD")
 
     @property
     def healpix_values(self):
@@ -156,13 +187,20 @@ class SchedulerMap:
         if self.map_key not in self.map_keys:
             self.map_key = self.map_keys[-1]
 
-        self.mjd = self.conditions.mjd
+        self._mjd = self.conditions.mjd
         for sphere_map in self.sphere_maps.values():
             sphere_map.mjd = self.mjd
 
-        self.sphere_maps["armillary_sphere"].sliders["lst"].value = (
-            self.sphere_maps["armillary_sphere"].lst * 24.0 / 360.0
-        )
+        if "armillary_sphere" in self.sphere_maps:
+            self.sphere_maps["armillary_sphere"].sliders["lst"].value = (
+                self.sphere_maps["armillary_sphere"].lst * 24.0 / 360.0
+            )
+
+        if "time_selector" in self.bokeh_models:
+            self.update_time_selector()
+
+        if "time_input_box" in self.bokeh_models:
+            self.update_time_input_box()
 
         # Actually push the change out to the user's browser
         self.update_healpix_data()
@@ -178,12 +216,7 @@ class SchedulerMap:
         )
 
         def switch_time(attrname, old, new):
-            self.observatory.mjd = new
-            LOGGER.info("Calculating new conditions")
-            self.conditions = self.observatory.return_conditions()
-            LOGGER.info("Updating interface for new conditions")
-            self.update_for_new_conditions()
-            LOGGER.info("Finished updating time")
+            self.mjd = new
 
         time_selector.on_change("value_throttled", switch_time)
         self.bokeh_models["time_selector"] = time_selector
@@ -193,6 +226,23 @@ class SchedulerMap:
         self.bokeh_models["time_selector"].start = self.conditions.sunset
         self.bokeh_models["time_selector"].end = self.conditions.sunrise
         self.bokeh_models["time_selector"].value = self.conditions.mjd
+
+    def make_time_input_box(self):
+        """Create the time entry box bokeh model."""
+        time_input_box = bokeh.models.TextInput(title="Date and time (UTC):")
+        self.bokeh_models["time_input_box"] = time_input_box
+        self.update_time_input_box()
+
+        def switch_time(attrname, old, new):
+            new_mjd = pd.to_datetime(new, utc=True).to_julian_date() - 2400000.5
+            self.mjd = new_mjd
+
+        time_input_box.on_change("value", switch_time)
+
+    def update_time_input_box(self):
+        """Update the time selector limits and value to match the date."""
+        iso_time = Time(self.mjd, format="mjd", scale="utc").iso
+        self.bokeh_models["time_input_box"].value = iso_time
 
     def make_tier_selector(self):
         """Create the tier selector bokeh model."""
@@ -452,6 +502,8 @@ class SchedulerMap:
         ]
 
         if self.observatory is not None:
+            self.make_time_input_box()
+            controls.append(self.bokeh_models["time_input_box"])
             controls.append(self.bokeh_models["time_selector"])
 
         controls += [
