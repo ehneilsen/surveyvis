@@ -8,6 +8,7 @@ import pandas as pd
 import bokeh.models
 import bokeh.core.properties
 
+from rubin_sim.scheduler.features.conditions import Conditions
 from rubin_sim.scheduler.modelObservatory import Model_observatory
 import rubin_sim.scheduler.schedulers
 import rubin_sim.scheduler.surveys
@@ -52,27 +53,29 @@ class SchedulerMap:
     ]
 
     def __init__(self, init_key="AvoidDirectWind", nside=16):
-        self.scheduler = None
-        self.conditions = None
+        self._scheduler = None
         self.survey_index = [None, None]
         self.scheduler_healpix_maps = {}
         self.init_key = init_key
         self.map_key = init_key
-        self._mjd = Time.now().mjd if DEFAULT_MJD is None else DEFAULT_MJD
         self.nside = nside
         self.healpix_cmap = None
         self.data_sources = {}
         self.glyphs = {}
         self.bokeh_models = {}
         self.sphere_maps = {}
+        mjd = Time.now().mjd if DEFAULT_MJD is None else DEFAULT_MJD
         try:
-            self.observatory = Model_observatory(mjd_start=self.mjd - 1)
+            self.observatory = Model_observatory(mjd_start=mjd - 1)
         except ValueError:
             self.observatory = None
 
+        default_scheduler = make_default_scheduler(mjd, nside=nside)
+        self.scheduler = default_scheduler
+
     @property
     def mjd(self):
-        return self._mjd
+        return self.conditions.mjd
 
     @mjd.setter
     def mjd(self, value):
@@ -83,23 +86,26 @@ class SchedulerMap:
         value : `float`
             The new MJD
         """
-        if value != self._mjd:
+        if value == self.mjd:
+            # Nothing needs to be done
+            return
 
-            # Update conditions if we need to, and we can
-            if self.conditions.mjd != value:
-                if self.observatory is not None:
-                    self.observatory.mjd = value
-                    LOGGER.info("Calculating new conditions")
-                    self.conditions = self.observatory.return_conditions()
-                    LOGGER.info("Updating interface for new conditions")
+        LOGGER.info(f"Creating conditions for mjd {value}")
+        try:
+            self.observatory.mjd = value
+            conditions = self.observatory.return_conditions()
+            LOGGER.info("Conditions created")
+        except (ValueError, AttributeError):
+            # If we do not have the right cache of sky brightness
+            # values on disk, we may not be able to instantiate
+            # Model_observatory, but we should be able to run
+            # it anyway. Fake up a conditions object as well as
+            # we can.
+            conditions = Conditions(start_mjd=value - 1)
+            conditions.mjd = value
+            LOGGER.warning("Created dummy conditions.")
 
-                    # update_for_new_conditions sets self._mjd
-                    # (among other things)
-                    self.update_for_new_conditions()
-
-                    LOGGER.info("Finished updating conditions")
-                else:
-                    LOGGER.warning("Cannot update conditions for new MJD")
+        self.conditions = conditions
 
     @property
     def healpix_values(self):
@@ -141,20 +147,24 @@ class SchedulerMap:
         """
         scheduler = read_scheduler(file_name)
         conditions = read_conditions(file_name)
-        self.set_scheduler(scheduler, conditions)
+        scheduler.update_conditions(conditions)
+        self.scheduler = scheduler
 
-    def set_scheduler(self, scheduler, conditions=None):
+    @property
+    def scheduler(self):
+        return self._scheduler
+
+    @scheduler.setter
+    def scheduler(self, scheduler):
         """Set the scheduler visualized.
 
         Parameters
         ----------
         scheduler : `rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler`  # noqa W505
             The new scheduler to visualize
-        conditions : `rubin_sim.scheduler.features.conditions.Conditions`
-            THe contitions, if not those in the scheduler
         """
-        self.scheduler = scheduler
-        self.conditions = scheduler.conditions if conditions is None else conditions
+        LOGGER.debug("Setting the scheduler")
+        self._scheduler = scheduler
 
         # FIXME The pickle used for testing does not include several
         # required methods of the Scheduler class, so add them.
@@ -170,12 +180,24 @@ class SchedulerMap:
             self.survey_index[1] = 0
 
         self.update_time_selector()
-        self.update_for_new_conditions()
+        self.conditions = scheduler.conditions
         self.update_tier_selector()
 
-    def update_for_new_conditions(self):
-        """Update the figure to represent changed conditions."""
-        self.scheduler.update_conditions(self.conditions)
+    @property
+    def conditions(self):
+        return self.scheduler.conditions
+
+    @conditions.setter
+    def conditions(self, conditions):
+        """Update the figure to represent changed conditions.
+
+        Parameters
+        ----------
+        conditions : `rubin_sim.scheduler.features.conditions.Conditions`
+            The new conditions.
+        """
+        LOGGER.info("Updating interface for new conditions")
+        self.scheduler.update_conditions(conditions)
         self.update_reward_table()
         self.scheduler_healpix_maps = self.scheduler.get_healpix_maps(
             survey_index=self.survey_index, conditions=self.conditions
@@ -187,7 +209,6 @@ class SchedulerMap:
         if self.map_key not in self.map_keys:
             self.map_key = self.map_keys[-1]
 
-        self._mjd = self.conditions.mjd
         for sphere_map in self.sphere_maps.values():
             sphere_map.mjd = self.mjd
 
@@ -204,6 +225,8 @@ class SchedulerMap:
 
         # Actually push the change out to the user's browser
         self.update_healpix_data()
+
+        LOGGER.info("Finished updating conditions")
 
     def make_time_selector(self):
         """Create the time selector slider bokeh model."""
@@ -223,9 +246,10 @@ class SchedulerMap:
 
     def update_time_selector(self):
         """Update the time selector limits and value to match the date."""
-        self.bokeh_models["time_selector"].start = self.conditions.sunset
-        self.bokeh_models["time_selector"].end = self.conditions.sunrise
-        self.bokeh_models["time_selector"].value = self.conditions.mjd
+        if "time_selector" in self.bokeh_models:
+            self.bokeh_models["time_selector"].start = self.conditions.sunset
+            self.bokeh_models["time_selector"].end = self.conditions.sunrise
+            self.bokeh_models["time_selector"].value = self.conditions.mjd
 
     def make_time_input_box(self):
         """Create the time entry box bokeh model."""
@@ -241,8 +265,9 @@ class SchedulerMap:
 
     def update_time_input_box(self):
         """Update the time selector limits and value to match the date."""
-        iso_time = Time(self.mjd, format="mjd", scale="utc").iso
-        self.bokeh_models["time_input_box"].value = iso_time
+        if "time_input_box" in self.bokeh_models:
+            iso_time = Time(self.mjd, format="mjd", scale="utc").iso
+            self.bokeh_models["time_input_box"].value = iso_time
 
     def make_tier_selector(self):
         """Create the tier selector bokeh model."""
@@ -253,12 +278,14 @@ class SchedulerMap:
 
         tier_selector.on_change("value", switch_tier)
         self.bokeh_models["tier_selector"] = tier_selector
+        self.update_tier_selector()
 
     def update_tier_selector(self):
         """Update tier selector to represent tiers for the current survey."""
-        options = [f"tier {t}" for t in np.arange(len(self.scheduler.survey_lists))]
-        self.bokeh_models["tier_selector"].options = options
-        self.bokeh_models["tier_selector"].value = options[self.survey_index[0]]
+        if "tier_selector" in self.bokeh_models:
+            options = [f"tier {t}" for t in np.arange(len(self.scheduler.survey_lists))]
+            self.bokeh_models["tier_selector"].options = options
+            self.bokeh_models["tier_selector"].value = options[self.survey_index[0]]
 
     def select_tier(self, tier):
         """Set the tier being displayed."""
@@ -279,11 +306,12 @@ class SchedulerMap:
 
     def update_survey_selector(self):
         """Uptade the survey selector to the current scheduler and tier."""
-        options = [
-            s.survey_name for s in self.scheduler.survey_lists[self.survey_index[0]]
-        ]
-        self.bokeh_models["survey_selector"].options = options
-        self.bokeh_models["survey_selector"].value = options[self.survey_index[1]]
+        if "survey_selector" in self.bokeh_models:
+            options = [
+                s.survey_name for s in self.scheduler.survey_lists[self.survey_index[0]]
+            ]
+            self.bokeh_models["survey_selector"].options = options
+            self.bokeh_models["survey_selector"].value = options[self.survey_index[1]]
 
     def select_survey(self, survey):
         """Update the display to show a given survey.
@@ -335,13 +363,14 @@ class SchedulerMap:
 
     def update_value_selector(self):
         """Update the value selector bokeh model to show available options."""
-        self.bokeh_models["value_selector"].options = self.map_keys
-        if self.map_key in self.map_keys:
-            self.bokeh_models["value_selector"].value = self.map_key
-        elif self.init_key in self.map_keys:
-            self.bokeh_models["value_selector"].value = self.init_key
-        else:
-            self.bokeh_models["value_selector"].value = self.map_keys[-1]
+        if "value_selector" in self.bokeh_models:
+            self.bokeh_models["value_selector"].options = self.map_keys
+            if self.map_key in self.map_keys:
+                self.bokeh_models["value_selector"].value = self.map_key
+            elif self.init_key in self.map_keys:
+                self.bokeh_models["value_selector"].value = self.init_key
+            else:
+                self.bokeh_models["value_selector"].value = self.map_keys[-1]
 
     def make_sphere_map(
         self,
@@ -413,7 +442,8 @@ class SchedulerMap:
             new_data[key] = self.scheduler_healpix_maps[key][new_data["hpid"]]
 
         # Replace the data to be shown
-        self.data_sources["healpix"].data = new_data
+        if "healpix" in self.data_sources:
+            self.data_sources["healpix"].data = new_data
 
         for sphere_map in self.sphere_maps.values():
             sphere_map.healpix_glyph.fill_color = self.healpix_cmap
@@ -433,15 +463,16 @@ class SchedulerMap:
         )
 
     def update_reward_table(self):
-        reward_df = self.scheduler.survey_lists[self.survey_index[0]][
-            self.survey_index[1]
-        ].make_reward_df(self.conditions)
-        self.bokeh_models["reward_table"].source = bokeh.models.ColumnDataSource(
-            reward_df
-        )
-        self.bokeh_models["reward_table"].columns = [
-            bokeh.models.TableColumn(field=c, title=c) for c in reward_df
-        ]
+        if "reward_table" in self.bokeh_models:
+            reward_df = self.scheduler.survey_lists[self.survey_index[0]][
+                self.survey_index[1]
+            ].make_reward_df(self.conditions)
+            self.bokeh_models["reward_table"].source = bokeh.models.ColumnDataSource(
+                reward_df
+            )
+            self.bokeh_models["reward_table"].columns = [
+                bokeh.models.TableColumn(field=c, title=c) for c in reward_df
+            ]
 
     def make_figure(self):
         self.make_sphere_map(
@@ -557,13 +588,6 @@ def make_scheduler_map_figure(
 
     if scheduler_pickle_fname is not None:
         scheduler_map.load(scheduler_pickle_fname)
-    else:
-        try:
-            scheduler = make_default_scheduler(scheduler_map.mjd)
-            scheduler_map.set_scheduler(scheduler)
-        except ValueError:
-            breakpoint()
-            pass
 
     return figure
 
@@ -594,6 +618,7 @@ def make_default_scheduler(mjd, nside=32):
     -------
     scheduler : `rubin_sim.scheduler.schedulers.Core_scheduler`
     """
+    LOGGER.debug("Making default scheduler")
 
     def make_band_survey(band):
         survey = rubin_sim.scheduler.surveys.BaseSurvey(
@@ -616,9 +641,19 @@ def make_default_scheduler(mjd, nside=32):
     scheduler = rubin_sim.scheduler.schedulers.Core_scheduler(
         [visible_surveys, ir_surveys], nside=nside
     )
-    observatory = Model_observatory(mjd_start=mjd - 1)
-    observatory.mjd = mjd
-    conditions = observatory.return_conditions()
+    try:
+        observatory = Model_observatory(mjd_start=mjd - 1)
+        observatory.mjd = mjd
+        conditions = observatory.return_conditions()
+    except ValueError:
+        # If we do not have the right cache of sky brightness
+        # values on disk, we may not be able to instantiate
+        # Model_observatory, but we should be able to run
+        # it anyway. Fake up a conditions object as well as
+        # we can.
+        conditions = Conditions(start_mjd=mjd - 1)
+        conditions.mjd = mjd
+
     scheduler.update_conditions(conditions)
     return scheduler
 
