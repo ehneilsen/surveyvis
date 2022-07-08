@@ -86,7 +86,13 @@ class SchedulerMap:
         value : `float`
             The new MJD
         """
-        if value == self.mjd:
+
+        # Sometimes a loaded pickle will have close to a represented
+        # time, but not identical, and we do not want to try to recreate
+        # the conditions object if we have loaded it and not changed the
+        # time. So, check only that the mjd is close, not that it
+        # is identical.
+        if np.abs(value - self.mjd) < (1.0 / (24 * 60 * 60)):
             # Nothing needs to be done
             return
 
@@ -101,7 +107,7 @@ class SchedulerMap:
             # Model_observatory, but we should be able to run
             # it anyway. Fake up a conditions object as well as
             # we can.
-            conditions = Conditions(start_mjd=value - 1)
+            conditions = Conditions(mjd_start=value - 1)
             conditions.mjd = value
             LOGGER.warning("Created dummy conditions.")
 
@@ -259,6 +265,9 @@ class SchedulerMap:
 
         def switch_time(attrname, old, new):
             new_mjd = pd.to_datetime(new, utc=True).to_julian_date() - 2400000.5
+            LOGGER.debug(
+                f"Old mjd: {self.mjd}, New MJD: {new_mjd}, equal: {self.mjd==new_mjd}, diff: {self.mjd-new_mjd}"
+            )
             self.mjd = new_mjd
 
         time_input_box.on_change("value", switch_time)
@@ -621,15 +630,29 @@ def make_default_scheduler(mjd, nside=32):
     LOGGER.debug("Making default scheduler")
 
     def make_band_survey(band):
-        survey = rubin_sim.scheduler.surveys.BaseSurvey(
-            [
+        # Split the creation of basis functions so that if one fails,
+        # the other(s) might still be included.
+        basis_functions = []
+        try:
+            this_basis_function = (
+                rubin_sim.scheduler.basis_functions.Ecliptic_basis_function(nside=nside)
+            )
+            basis_functions.append(this_basis_function)
+        except Exception:
+            pass
+
+        try:
+            this_basis_function = (
                 rubin_sim.scheduler.basis_functions.M5_diff_basis_function(
                     filtername=band, nside=nside
-                ),
-                rubin_sim.scheduler.basis_functions.Ecliptic_basis_function(
-                    nside=nside
-                ),
-            ],
+                )
+            )
+            basis_functions.append(this_basis_function)
+        except Exception:
+            pass
+
+        survey = rubin_sim.scheduler.surveys.BaseSurvey(
+            basis_functions,
             survey_name=band,
         )
         return survey
@@ -651,7 +674,7 @@ def make_default_scheduler(mjd, nside=32):
         # Model_observatory, but we should be able to run
         # it anyway. Fake up a conditions object as well as
         # we can.
-        conditions = Conditions(start_mjd=mjd - 1)
+        conditions = Conditions(mjd_start=mjd - 1)
         conditions.mjd = mjd
 
     scheduler.update_conditions(conditions)
