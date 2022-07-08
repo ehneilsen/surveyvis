@@ -23,7 +23,7 @@ from surveyvis.plot.SphereMap import (
     make_zscale_linear_cmap,
 )
 
-from surveyvis.collect import read_scheduler, read_conditions, sample_pickle
+from surveyvis.collect import read_scheduler, sample_pickle
 
 DEFAULT_MJD = 60200.2
 
@@ -151,8 +151,7 @@ class SchedulerMap:
         file_name : `str`
             The file name from which to load scheduler state.
         """
-        scheduler = read_scheduler(file_name)
-        conditions = read_conditions(file_name)
+        scheduler, conditions = read_scheduler(file_name)
         scheduler.update_conditions(conditions)
         self.scheduler = scheduler
 
@@ -265,9 +264,6 @@ class SchedulerMap:
 
         def switch_time(attrname, old, new):
             new_mjd = pd.to_datetime(new, utc=True).to_julian_date() - 2400000.5
-            LOGGER.debug(
-                f"Old mjd: {self.mjd}, New MJD: {new_mjd}, equal: {self.mjd==new_mjd}, diff: {self.mjd-new_mjd}"
-            )
             self.mjd = new_mjd
 
         time_input_box.on_change("value", switch_time)

@@ -2,8 +2,12 @@ import pickle
 import os
 import gzip
 import importlib.resources
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import urllib
+import urllib.request
 
-__all__ = ["read_scheduler", "read_conditions", "sample_pickle"]
+__all__ = ["read_scheduler", "sample_pickle"]
 
 try:
     PICKLE_FNAME = os.environ["SCHED_PICKLE"]
@@ -11,7 +15,7 @@ except KeyError:
     PICKLE_FNAME = None
 
 
-def read_scheduler(file_name=None):
+def read_local_scheduler_pickle(file_name):
     """Read an instance of a scheduler object from a pickle.
 
     Parameters
@@ -23,31 +27,6 @@ def read_scheduler(file_name=None):
     -------
     scheduler : `rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler`
         An instance of a rubin_sim scheduler object.
-    """
-    if file_name is None:
-        file_name = PICKLE_FNAME
-
-    if file_name is None:
-        file_name = sample_pickle()
-
-    opener = gzip.open if file_name.endswith(".gz") else open
-
-    with opener(file_name, "rb") as pio:
-        scheduler, _ = pickle.load(pio)
-
-    return scheduler
-
-
-def read_conditions(file_name=None):
-    """Read an instance of a conditions object from a pickle.
-
-    Parameters
-    ----------
-    file_name : `str`
-        The name of the pickle file from which to load the conditions.
-
-    Returns
-    -------
     conditions : `rubin_sim.scheduler.features.conditions.Conditions`
         An instance of a rubin_sim conditions object.
     """
@@ -60,9 +39,55 @@ def read_conditions(file_name=None):
     opener = gzip.open if file_name.endswith(".gz") else open
 
     with opener(file_name, "rb") as pio:
-        _, conditions = pickle.load(pio)
+        scheduler, conditions = pickle.load(pio)
 
-    return conditions
+    return [scheduler, conditions]
+
+
+def read_scheduler(file_name_or_url=None):
+    """Read an instance of a scheduler object from a pickle.
+
+    Parameters
+    ----------
+    file_name : `str`
+        The name or URL of the pickle file from which to load the scheduler.
+
+    Returns
+    -------
+    scheduler : `rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler`
+        An instance of a rubin_sim scheduler object.
+    conditions : `rubin_sim.scheduler.features.conditions.Conditions`
+        An instance of a rubin_sim conditions object.
+    """
+    if file_name_or_url is None:
+        file_name_or_url = PICKLE_FNAME
+
+    if file_name_or_url is None:
+        file_name_or_url = sample_pickle()
+
+    if Path(file_name_or_url).is_file():
+        scheduler, conditions = read_local_scheduler_pickle(file_name_or_url)
+    else:
+        # If we didn't have do decompress it, we could use urlopen instead
+        # of downloading a local copy. But, it can be compressed, so we need
+        # to use gzip.open to open it.
+        with TemporaryDirectory() as directory:
+            with urllib.request.urlopen(file_name_or_url) as url_io:
+                content = url_io.read()
+
+            # Infer a file name
+            parsed_url = urllib.parse.urlparse(file_name_or_url)
+            origin_path = Path(parsed_url.path)
+            origin_name = origin_path.name
+            name = origin_name if len(origin_name) > 0 else "scheduler.pickle"
+            path = Path(directory).joinpath(name)
+
+            with open(path, "wb") as file_io:
+                file_io.write(content)
+
+            scheduler, conditions = read_local_scheduler_pickle(str(path))
+
+    return scheduler, conditions
 
 
 def sample_pickle():
