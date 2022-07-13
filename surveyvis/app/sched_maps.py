@@ -229,7 +229,7 @@ class SchedulerMap:
             self.update_time_input_box()
 
         # Actually push the change out to the user's browser
-        self.update_healpix_data()
+        self.update_map_data()
 
         LOGGER.info("Finished updating conditions")
 
@@ -351,7 +351,7 @@ class SchedulerMap:
         # Note that updating the value selector triggers the
         # callback, which updates the maps themselves
         self.update_value_selector()
-
+        self.update_survey_marker_data()
         self.update_reward_table()
 
     def make_value_selector(self):
@@ -361,7 +361,7 @@ class SchedulerMap:
         def switch_value(attrname, old, new):
             LOGGER.info(f"Switching value to {new}")
             self.map_key = new
-            self.update_healpix_data()
+            self.update_map_data()
 
         value_selector.on_change("value", switch_value)
         self.bokeh_models["value_selector"] = value_selector
@@ -427,15 +427,126 @@ class SchedulerMap:
         if decorate:
             sphere_map.decorate()
 
+        if "survey_marker" not in self.data_sources:
+            self.data_sources["survey_marker"] = self.make_survey_marker_data_source(
+                sphere_map
+            )
+
+        sphere_map.add_marker(
+            data_source=self.data_sources["survey_marker"],
+            name="Field",
+            circle_kwargs={"color": "red", "fill_alpha": 0.5},
+        )
+
+        if "telescope_marker" not in self.data_sources:
+            self.data_sources[
+                "telescope_marker"
+            ] = self.make_telescope_marker_data_source(sphere_map)
+
+        sphere_map.add_marker(
+            data_source=self.data_sources["telescope_marker"],
+            name="Field",
+            circle_kwargs={"color": "green", "fill_alpha": 0.5},
+        )
+
         self.bokeh_models[key] = plot
         self.sphere_maps[key] = sphere_map
 
+    def make_telescope_marker_data_source(self, sphere_map=None):
+        """Create a bokeh datasource for the current telescope pointing.
+
+        Parameters
+        ----------
+        sphere_map: `surveyvis.plot.SphereMap`
+            The instance of SphereMap to use to create the data source
+
+        Returns
+        -------
+        data_source: `bokeh.models.ColumnDataSource`
+            The DataSource with the column data.
+        """
+        if sphere_map is None:
+            sphere_map = self.sphere_maps.values()[0]
+
+        # If the telescope position is not set in our instance of
+        # conditions, use an empty array
+        ra = getattr(self.conditions, "telRA", np.array([]))
+        decl = getattr(self.conditions, "telDec", np.array([]))
+        if ra is None:
+            ra = np.array([])
+        if decl is None:
+            decl = np.array([])
+        LOGGER.debug(
+            f"Telescope coordinates: ra={np.degrees(ra)}, decl={np.degrees(decl)}"
+        )
+        data_source = sphere_map.make_marker_data_source(
+            ra=np.degrees(ra), decl=np.degrees(decl), name="Pointing", glyph_size=20
+        )
+        return data_source
+
+    def update_telescope_marker_data(self):
+        """Update the telescope pointing data source."""
+        if "telescope_marker" not in self.data_sources:
+            return
+
+        sphere_map = tuple(self.sphere_maps.values())[0]
+        data_source = self.make_telescope_marker_data_source(sphere_map)
+        data = dict(data_source.data)
+        if "telescope_marker" in self.data_sources:
+            self.data_sources["telescope_marker"].data = data
+
+    def make_survey_marker_data_source(self, sphere_map=None):
+        """Create a bokeh datasource for the pointings for the current survey.
+
+        Parameters
+        ----------
+        sphere_map: `surveyvis.plot.SphereMap`
+            The instance of SphereMap to use to create the data source
+
+        Returns
+        -------
+        data_source: `bokeh.models.ColumnDataSource`
+            The DataSource with the column data.
+        """
+        if sphere_map is None:
+            sphere_map = tuple(self.sphere_maps.values())[0]
+
+        survey = self.scheduler.survey_lists[self.survey_index[0]][self.survey_index[1]]
+        # If the survey has no coordinates associated with it,
+        # use an empty array
+        ra = getattr(survey, "RA", np.array([]))
+        if len(ra) < 1:
+            ra = getattr(survey, "ra", np.array([]))
+        decl = getattr(survey, "dec", np.array([]))
+        LOGGER.debug(
+            f"Survey coordinates: ra={np.degrees(ra)}, decl={np.degrees(decl)}"
+        )
+        data_source = sphere_map.make_marker_data_source(
+            ra=np.degrees(ra), decl=np.degrees(decl), name="Field", glyph_size=15
+        )
+        return data_source
+
+    def update_survey_marker_data(self):
+        """Update the survey pointing data source."""
+        if "survey_marker" not in self.data_sources:
+            return
+
+        sphere_map = tuple(self.sphere_maps.values())[0]
+        data_source = self.make_survey_marker_data_source(sphere_map)
+        data = dict(data_source.data)
+        if "survey_marker" in self.data_sources:
+            self.data_sources["survey_marker"].data = data
+
     def update_healpix_data(self):
+        """Update the healpix value data source."""
+        if "healpix" not in self.data_sources:
+            return
+
+        sphere_map = tuple(self.sphere_maps.values())[0]
+        # sphere_map = ArmillarySphere(mjd=self.conditions.mjd)
+
         self.healpix_cmap = make_zscale_linear_cmap(self.healpix_values)
 
-        # Pick one of your spherical map objects
-        # to use to create a new data source.
-        sphere_map = ArmillarySphere(mjd=self.conditions.mjd)
         new_ds = sphere_map.make_healpix_data_source(
             self.healpix_values,
             nside=self.nside,
@@ -447,12 +558,17 @@ class SchedulerMap:
             new_data[key] = self.scheduler_healpix_maps[key][new_data["hpid"]]
 
         # Replace the data to be shown
-        if "healpix" in self.data_sources:
-            self.data_sources["healpix"].data = new_data
+        self.data_sources["healpix"].data = new_data
 
         for sphere_map in self.sphere_maps.values():
             sphere_map.healpix_glyph.fill_color = self.healpix_cmap
             sphere_map.healpix_glyph.line_color = self.healpix_cmap
+
+    def update_map_data(self):
+        """Update all map related bokeh data sources"""
+        self.update_healpix_data()
+        self.update_telescope_marker_data()
+        self.update_survey_marker_data()
 
     def make_reward_table(self):
         # Bokeh's DataTable doesn't like to expand to accommodate extra rows,

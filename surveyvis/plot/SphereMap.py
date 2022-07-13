@@ -852,6 +852,43 @@ class SphereMap:
 
         return points
 
+    def make_marker_data_source(
+        self, ra=None, decl=None, name="anonymous", glyph_size=5
+    ):
+        """Add one or more circular marker(s) to the map.
+
+        Parameters
+        ----------
+        ra : `float` or `Iterable`, optional
+            R.A. of the marker (deg.), by default None
+        decl : `float` or `Iterable`, optional
+            Declination of the marker (deg.), by default None
+        name : `str` or `Iterable` , optional
+            Name for the thing marked, by default "anonymous"
+        glyph_size : `int` or `Iterable`, optional
+            Size of the marker, by default 5
+
+        Returns
+        -------
+        data_source : `bokeh.models.ColumnDataSource`
+            A data source with marker locations, including projected coords.
+        """
+        ras = ra if isinstance(ra, Iterable) else [ra]
+        decls = decl if isinstance(decl, Iterable) else [decl]
+        if len(ras) > 0:
+            glyph_sizes = (
+                glyph_size if isinstance(glyph_size, Iterable) else [glyph_size]
+            )
+            names = [name] if isinstance(name, str) else name
+        else:
+            glyph_sizes = np.array([])
+            names = np.array([])
+        data_source = self.make_points(
+            {"ra": ras, "decl": decls, "name": names, "glyph_size": glyph_sizes}
+        )
+
+        return data_source
+
     def add_sliders(self):
         """Add (already defined) sliders to the map."""
         self.sliders = OrderedDict()
@@ -1085,15 +1122,7 @@ class SphereMap:
             A data source with marker locations, including projected coords.
         """
         if data_source is None:
-            ras = ra if isinstance(ra, Iterable) else [ra]
-            decls = decl if isinstance(decl, Iterable) else [decl]
-            glyph_sizes = (
-                glyph_size if isinstance(glyph_size, Iterable) else [glyph_size]
-            )
-            names = [name] if isinstance(name, str) else name
-            data_source = self.make_points(
-                {"ra": ras, "decl": decls, "name": names, "glyph_size": glyph_sizes}
-            )
+            data_source = self.make_marker_data_source(ra, decl, name, glyph_size)
 
         self.plot.circle(
             x=self.x_col,
