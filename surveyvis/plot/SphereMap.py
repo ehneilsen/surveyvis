@@ -167,6 +167,18 @@ class SphereMap:
         )
         x3, y3, z3 = rotate_cart(npole_x2, npole_y2, npole_z2, -self.lst, x2, y2, z2)
 
+        # x3, y3, z3 have the center right, now rotate it so that north is "up"
+        # the 2-3 transform is about the axis through the n pole, so
+        # the n pole is the same in 3 an 2.
+
+        # Find the direction of the north pole, angle form +x axis toward
+        # +y axis
+        npole_x3, npole_y3, npole_z3 = npole_x2, npole_y2, npole_z2
+        orient = np.degrees(np.arctan2(npole_y3, npole_x3))
+
+        # To the n pole on the y axis, we must rotate it the rest of the 90 deg
+        x4, y4, z4 = rotate_cart(0, 0, 1, 90 - orient, x3, y3, z3)
+
         # In astronomy, we are looking out of the sphere from the center to the
         # back (which naturally results in west to the right).
         # Positive z is out of the screen behind us, and we are at the center,
@@ -180,12 +192,12 @@ class SphereMap:
         # irregularly dotted/dashed appearance to the horizon if
         # a cutoff of exactly 0 is used.
 
-        orth_invisible = z3 > np.finfo(z3.dtype).resolution
-        x3[orth_invisible] = np.nan
-        y3[orth_invisible] = np.nan
-        z3[orth_invisible] = np.nan
+        orth_invisible = z4 > np.finfo(z4.dtype).resolution
+        x4[orth_invisible] = np.nan
+        y4[orth_invisible] = np.nan
+        z4[orth_invisible] = np.nan
 
-        return x3, y3, z3
+        return x4, y4, z4
 
     def eq_to_horizon(self, ra, decl, degrees=True, cart=True):
         """Convert equatorial to horizon coordinates
