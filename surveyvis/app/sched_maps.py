@@ -449,8 +449,162 @@ class SchedulerMap:
             circle_kwargs={"color": "green", "fill_alpha": 0.5},
         )
 
+        if "moon_marker" not in self.data_sources:
+            self.data_sources["moon_marker"] = self.make_moon_marker_data_source(
+                sphere_map
+            )
+
+        sphere_map.add_marker(
+            data_source=self.data_sources["moon_marker"],
+            name="Moon",
+            circle_kwargs={"color": "lightgray", "fill_alpha": 0.8},
+        )
+
+        if "sun_marker" not in self.data_sources:
+            self.data_sources["sun_marker"] = self.make_moon_marker_data_source(
+                sphere_map
+            )
+
+        sphere_map.add_marker(
+            data_source=self.data_sources["sun_marker"],
+            name="Sun",
+            circle_kwargs={"color": "yellow", "fill_alpha": 1},
+        )
+
         self.bokeh_models[key] = plot
         self.sphere_maps[key] = sphere_map
+
+    def _make_marker_data_source(
+        self,
+        sphere_map=None,
+        name="telescope",
+        source_name="conditions",
+        ra_name="telRA",
+        decl_name="telDec",
+        source_units="radians",
+    ):
+        """Create a bokeh datasource for the moon.
+
+        Parameters
+        ----------
+        sphere_map: `surveyvis.plot.SphereMap`
+            The instance of SphereMap to use to create the data source
+        name : 'str'
+            The name of the thing to mark.
+        source_name : `str`
+            The name of the member object to provide the coordinates.
+        ra_name : `str`
+            The name of the member with the RA.
+        decl_name : `str`
+            The name of the member with the declination.
+        source_units : `str`
+            'radians' or 'degrees', according to what is provided by the source
+
+        Returns
+        -------
+        data_source: `bokeh.models.ColumnDataSource`
+            The DataSource with the column data.
+        """
+        if sphere_map is None:
+            sphere_map = tuple(self.sphere_maps.values())[0]
+
+        sources = {
+            "conditions": self.conditions,
+            "survey": self.scheduler.survey_lists[self.survey_index[0]][
+                self.survey_index[1]
+            ],
+        }
+        source = sources[source_name]
+
+        # If the telescope position is not set in our instance of
+        # conditions, use an empty array
+        ra = getattr(source, ra_name, np.array([]))
+        decl = getattr(source, decl_name, np.array([]))
+        if ra is None:
+            ra = np.array([])
+        if decl is None:
+            decl = np.array([])
+        LOGGER.debug(
+            f"{name} coordinates: ra={np.degrees(ra)}, decl={np.degrees(decl)}"
+        )
+        if source_units == "radians":
+            ra_deg = np.degrees(ra)
+            decl_deg = np.degrees(decl)
+        elif source_units in ("degrees", "deg"):
+            ra_deg = ra
+            decl_deg = decl
+        data_source = sphere_map.make_marker_data_source(
+            ra=ra_deg, decl=decl_deg, name=name, glyph_size=20
+        )
+        return data_source
+
+    def make_moon_marker_data_source(self, sphere_map=None):
+        """Create a bokeh datasource for the moon.
+
+        Parameters
+        ----------
+        sphere_map: `surveyvis.plot.SphereMap`
+            The instance of SphereMap to use to create the data source
+
+        Returns
+        -------
+        data_source: `bokeh.models.ColumnDataSource`
+            The DataSource with the column data.
+        """
+        data_source = self._make_marker_data_source(
+            sphere_map=sphere_map,
+            name="moon",
+            source_name="conditions",
+            ra_name="moonRA",
+            decl_name="moonDec",
+            source_units="radians",
+        )
+        return data_source
+
+    def update_moon_marker_data(self):
+        """Update the moon data source."""
+        if "telescope_marker" not in self.data_sources:
+            return
+
+        sphere_map = tuple(self.sphere_maps.values())[0]
+        data_source = self.make_moon_marker_data_source(sphere_map)
+        data = dict(data_source.data)
+        if "moon_marker" in self.data_sources:
+            self.data_sources["moon_marker"].data = data
+
+    def make_sun_marker_data_source(self, sphere_map=None):
+        """Create a bokeh datasource for the sun.
+
+        Parameters
+        ----------
+        sphere_map: `surveyvis.plot.SphereMap`
+            The instance of SphereMap to use to create the data source
+
+        Returns
+        -------
+        data_source: `bokeh.models.ColumnDataSource`
+            The DataSource with the column data.
+        """
+        data_source = self._make_marker_data_source(
+            sphere_map=sphere_map,
+            name="sun",
+            source_name="conditions",
+            ra_name="sunRA",
+            decl_name="sunDec",
+            source_units="radians",
+        )
+        return data_source
+
+    def update_sun_marker_data(self):
+        """Update the sun data source."""
+        if "telescope_marker" not in self.data_sources:
+            return
+
+        sphere_map = tuple(self.sphere_maps.values())[0]
+        data_source = self.make_sun_marker_data_source(sphere_map)
+        data = dict(data_source.data)
+        if "sun_marker" in self.data_sources:
+            self.data_sources["sun_marker"].data = data
 
     def make_telescope_marker_data_source(self, sphere_map=None):
         """Create a bokeh datasource for the current telescope pointing.
@@ -465,22 +619,13 @@ class SchedulerMap:
         data_source: `bokeh.models.ColumnDataSource`
             The DataSource with the column data.
         """
-        if sphere_map is None:
-            sphere_map = self.sphere_maps.values()[0]
-
-        # If the telescope position is not set in our instance of
-        # conditions, use an empty array
-        ra = getattr(self.conditions, "telRA", np.array([]))
-        decl = getattr(self.conditions, "telDec", np.array([]))
-        if ra is None:
-            ra = np.array([])
-        if decl is None:
-            decl = np.array([])
-        LOGGER.debug(
-            f"Telescope coordinates: ra={np.degrees(ra)}, decl={np.degrees(decl)}"
-        )
-        data_source = sphere_map.make_marker_data_source(
-            ra=np.degrees(ra), decl=np.degrees(decl), name="Pointing", glyph_size=20
+        data_source = self._make_marker_data_source(
+            sphere_map=sphere_map,
+            name="telescope",
+            source_name="conditions",
+            ra_name="telRA",
+            decl_name="telDec",
+            source_units="radians",
         )
         return data_source
 
@@ -508,21 +653,13 @@ class SchedulerMap:
         data_source: `bokeh.models.ColumnDataSource`
             The DataSource with the column data.
         """
-        if sphere_map is None:
-            sphere_map = tuple(self.sphere_maps.values())[0]
-
-        survey = self.scheduler.survey_lists[self.survey_index[0]][self.survey_index[1]]
-        # If the survey has no coordinates associated with it,
-        # use an empty array
-        ra = getattr(survey, "RA", np.array([]))
-        if len(ra) < 1:
-            ra = getattr(survey, "ra", np.array([]))
-        decl = getattr(survey, "dec", np.array([]))
-        LOGGER.debug(
-            f"Survey coordinates: ra={np.degrees(ra)}, decl={np.degrees(decl)}"
-        )
-        data_source = sphere_map.make_marker_data_source(
-            ra=np.degrees(ra), decl=np.degrees(decl), name="Field", glyph_size=15
+        data_source = self._make_marker_data_source(
+            sphere_map=sphere_map,
+            name="Field",
+            source_name="survey",
+            ra_name="ra",
+            decl_name="dec",
+            source_units="radians",
         )
         return data_source
 
@@ -568,6 +705,8 @@ class SchedulerMap:
         """Update all map related bokeh data sources"""
         self.update_healpix_data()
         self.update_telescope_marker_data()
+        self.update_moon_marker_data()
+        self.update_sun_marker_data()
         self.update_survey_marker_data()
 
     def make_reward_table(self):
