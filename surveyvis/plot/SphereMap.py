@@ -173,7 +173,7 @@ class SphereMap:
 
         # Find the direction of the north pole, angle form +x axis toward
         # +y axis
-        npole_x3, npole_y3, npole_z3 = npole_x2, npole_y2, npole_z2
+        npole_x3, npole_y3 = npole_x2, npole_y2
         orient = np.degrees(np.arctan2(npole_y3, npole_x3))
 
         # To the n pole on the y axis, we must rotate it the rest of the 90 deg

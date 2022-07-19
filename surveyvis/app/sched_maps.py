@@ -131,14 +131,29 @@ class SchedulerMap:
         )
 
         def switch_pickle(attrname, old, new):
-            LOGGER.info(f"Loading {new}.")
-            try:
-                self.load(new)
-            except FileNotFoundError:
-                LOGGER.info("File not found.")
-                pass
+            def do_switch_pickle():
+                LOGGER.info(f"Loading {new}.")
+                try:
+                    self.load(new)
+                except FileNotFoundError:
+                    LOGGER.info("File not found.")
+                    pass
 
-            LOGGER.debug(f"Finished loading {new}")
+                LOGGER.debug(f"Finished loading {new}")
+
+                # If we do not have access to the document, this won't
+                # do anything and is unnecessary, but that's okay.
+                self.enable_controls()
+
+            if file_input_box.document is None:
+                # If we don't have access to the document, we can't disable
+                # the controls, so just do it.
+                do_switch_pickle()
+            else:
+                # disable the controls, and ask the document to do the update
+                # on the following event look tick.
+                self.disable_controls()
+                file_input_box.document.add_next_tick_callback(do_switch_pickle)
 
         file_input_box.on_change("value", switch_pickle)
         self.bokeh_models["file_input_box"] = file_input_box
@@ -244,7 +259,21 @@ class SchedulerMap:
         )
 
         def switch_time(attrname, old, new):
-            self.mjd = new
+            if time_selector.document is None:
+                # If we don't have access to the document, we can't disable
+                # the controls, so don't try.
+                self.mjd = new
+            else:
+                # To disable controls as the time is being updated, we need to
+                # separate the callback so it happens in two event loop ticks:
+                # the first tick disables the controls, the next one
+                # actually updates the MJD and then re-enables the controls.
+                def do_switch_time():
+                    self.mjd = new
+                    self.enable_controls()
+
+                self.disable_controls()
+                time_selector.document.add_next_tick_callback(do_switch_time)
 
         time_selector.on_change("value_throttled", switch_time)
         self.bokeh_models["time_selector"] = time_selector
@@ -264,7 +293,22 @@ class SchedulerMap:
 
         def switch_time(attrname, old, new):
             new_mjd = pd.to_datetime(new, utc=True).to_julian_date() - 2400000.5
-            self.mjd = new_mjd
+
+            if time_input_box.document is None:
+                # If we don't have access to the document, we can't disable
+                # the controls, so don't try.
+                self.mjd = new_mjd
+            else:
+                # To disable controls as the time is being updated, we need to
+                # separate the callback so it happens in two event loop ticks:
+                # the first tick disables the controls, the next one
+                # actually updates the MJD and then re-enables the controls.
+                def do_switch_time():
+                    self.mjd = new_mjd
+                    self.enable_controls()
+
+                self.disable_controls()
+                time_input_box.document.add_next_tick_callback(do_switch_time)
 
         time_input_box.on_change("value", switch_time)
 
@@ -733,6 +777,22 @@ class SchedulerMap:
             self.bokeh_models["reward_table"].columns = [
                 bokeh.models.TableColumn(field=c, title=c) for c in reward_df
             ]
+
+    def disable_controls(self):
+        """Disable all controls.
+
+        Intended to be used while plot elements are updating, and the
+        control therefore do not do what the user probably intends.
+        """
+        LOGGER.info("Disabling controls")
+        for model in self.bokeh_models.values():
+            model.disabled = True
+
+    def enable_controls(self):
+        """Enable all controls."""
+        LOGGER.info("Enabling controls")
+        for model in self.bokeh_models.values():
+            model.disabled = False
 
     def make_figure(self):
         self.make_sphere_map(
