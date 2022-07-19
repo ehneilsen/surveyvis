@@ -128,7 +128,8 @@ class SchedulerMap:
             survey_index=self.survey_index, conditions=self.conditions
         )
         for key in full_healpix_maps:
-            self.scheduler_healpix_maps[key] = hp.ud_grade(
+            new_key = key.replace(" ", "_").replace(".", "_")
+            self.scheduler_healpix_maps[new_key] = hp.ud_grade(
                 full_healpix_maps[key], self.nside
             )
 
