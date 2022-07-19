@@ -431,10 +431,16 @@ class SchedulerMap:
         decorate=True,
         horizon_graticules=False,
     ):
+
+        if "hover_tool" not in self.bokeh_models:
+            self.bokeh_models["hover_tool"] = bokeh.models.HoverTool(
+                renderers=[], tooltips=self.tooltips
+            )
+
         plot = bokeh.plotting.figure(
             plot_width=plot_width,
             plot_height=plot_height,
-            tooltips=self.tooltips,
+            tools=[self.bokeh_models["hover_tool"]],
             match_aspect=True,
             title=title,
         )
@@ -448,6 +454,8 @@ class SchedulerMap:
             sphere_map.add_healpix(self.healpix_values, nside=self.nside)
             self.data_sources["healpix"] = sphere_map.healpix_data
             self.healpix_cmap = sphere_map.healpix_cmap
+
+        self.bokeh_models["hover_tool"].renderers.append(sphere_map.healpix_renderer)
 
         if "horizon" in self.data_sources:
             sphere_map.add_horizon(data_source=self.data_sources["horizon"])

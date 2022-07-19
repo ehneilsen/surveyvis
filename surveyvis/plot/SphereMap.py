@@ -987,6 +987,7 @@ class SphereMap:
         )
 
         self.healpix_glyph = hpgr.glyph
+        self.healpix_renderer = hpgr
 
         hp_glyph = hpgr.glyph
 
