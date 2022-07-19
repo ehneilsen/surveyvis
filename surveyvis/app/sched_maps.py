@@ -3,6 +3,8 @@ import numpy as np
 import healpy as hp
 from astropy.time import Time
 import logging
+import collections.abc
+from collections import OrderedDict
 
 import pandas as pd
 import bokeh.models
@@ -47,15 +49,12 @@ class SchedulerMap:
     tooltips = [
         ("RA", "@center_ra"),
         ("Decl", "@center_decl"),
-        ("AvoidDirectWind", "@AvoidDirectWind"),
-        ("Moon avoidance", "@Moon_avoidance"),
-        ("Zenith shadow mask", "@Zenith_shadow_mask"),
     ]
 
     def __init__(self, init_key="AvoidDirectWind", nside=16):
         self._scheduler = None
         self.survey_index = [None, None]
-        self.scheduler_healpix_maps = {}
+        self.scheduler_healpix_maps = OrderedDict()
         self.init_key = init_key
         self.map_key = init_key
         self.nside = nside
@@ -72,6 +71,12 @@ class SchedulerMap:
 
         default_scheduler = make_default_scheduler(mjd, nside=nside)
         self.scheduler = default_scheduler
+
+    @property
+    def map_keys(self):
+        """Return keys for the available healpix maps"""
+        keys = list(self.scheduler_healpix_maps.keys())
+        return keys
 
     @property
     def mjd(self):
@@ -112,6 +117,20 @@ class SchedulerMap:
             LOGGER.warning("Created dummy conditions.")
 
         self.conditions = conditions
+
+    def _update_scheduler_healpix_maps(self):
+        """Update healpix values from the scheduler."""
+        # Be sure we keep using the same dictionary, and just update it,
+        # rather than use a new one because any new one we make won't propogate
+        # into other callbacks.
+        self.scheduler_healpix_maps.clear()
+        full_healpix_maps = self.scheduler.get_healpix_maps(
+            survey_index=self.survey_index, conditions=self.conditions
+        )
+        for key in full_healpix_maps:
+            self.scheduler_healpix_maps[key] = hp.ud_grade(
+                full_healpix_maps[key], self.nside
+            )
 
     @property
     def healpix_values(self):
@@ -219,13 +238,10 @@ class SchedulerMap:
         LOGGER.info("Updating interface for new conditions")
         self.scheduler.update_conditions(conditions)
         self.update_reward_table()
-        self.scheduler_healpix_maps = self.scheduler.get_healpix_maps(
-            survey_index=self.survey_index, conditions=self.conditions
-        )
+        self._update_scheduler_healpix_maps()
 
         # If the current map is no longer valid, pick a valid one.
         # Otherwise, keep displaying the same map.
-        self.map_keys = list(self.scheduler_healpix_maps.keys())
         if self.map_key not in self.map_keys:
             self.map_key = self.map_keys[-1]
 
@@ -374,29 +390,20 @@ class SchedulerMap:
         surveys_in_tier = [s.survey_name for s in self.scheduler.survey_lists[tier]]
         self.survey_index[1] = surveys_in_tier.index(survey)
 
-        # Be user we keep using teh same survey_index list, and just update it,
+        # Be user we keep using the same survey_index list, and just update it,
         # not create a new one, because any new one we make won't propogate
         # into other callbacks.
         tier = self.survey_index[0]
         surveys_in_tier = [s.survey_name for s in self.scheduler.survey_lists[tier]]
         self.survey_index[1] = surveys_in_tier.index(survey)
-
-        # Be sure we keep using the same dictionary, and just update it,
-        # rather than use a new one because any new one we make won't propogate
-        # into other callbacks.
-        self.scheduler_healpix_maps.clear()
-        self.scheduler_healpix_maps.update(
-            self.scheduler.get_healpix_maps(
-                survey_index=self.survey_index, conditions=self.conditions
-            )
-        )
-        self.map_keys = list(self.scheduler_healpix_maps.keys())
+        self._update_scheduler_healpix_maps()
 
         # Note that updating the value selector triggers the
         # callback, which updates the maps themselves
         self.update_value_selector()
         self.update_survey_marker_data()
         self.update_reward_table()
+        self.update_hovertool()
 
     def make_value_selector(self):
         """Create the bokeh model to select which value to show in maps."""
@@ -734,7 +741,19 @@ class SchedulerMap:
         sphere_map = tuple(self.sphere_maps.values())[0]
         # sphere_map = ArmillarySphere(mjd=self.conditions.mjd)
 
-        self.healpix_cmap = make_zscale_linear_cmap(self.healpix_values)
+        if "Zenith_shadow_mask" in self.map_keys:
+            zenith_mask = self.scheduler_healpix_maps["Zenith_shadow_mask"]
+            cmap_sample_data = self.healpix_values[zenith_mask == 1]
+        elif "y_sky" in self.map_keys:
+            sb_mask = self.scheduler_healpix_maps["y_sky"] > 10
+            cmap_sample_data = self.healpix_values[sb_mask]
+            if len(cmap_sample_data) == 0:
+                # It's probably day, so the color map will be bad regardless.
+                cmap_sample_data = self.healpix_values
+        else:
+            cmap_sample_data = self.healpix_values
+
+        self.healpix_cmap = make_zscale_linear_cmap(cmap_sample_data)
 
         new_ds = sphere_map.make_healpix_data_source(
             self.healpix_values,
@@ -744,6 +763,8 @@ class SchedulerMap:
         new_data = dict(new_ds.data)
 
         for key in self.map_keys:
+            # The datasource might not have the healpixels in the same order
+            # so force the order by indexing on new_data["hpid"]
             new_data[key] = self.scheduler_healpix_maps[key][new_data["hpid"]]
 
         # Replace the data to be shown
@@ -752,6 +773,28 @@ class SchedulerMap:
         for sphere_map in self.sphere_maps.values():
             sphere_map.healpix_glyph.fill_color = self.healpix_cmap
             sphere_map.healpix_glyph.line_color = self.healpix_cmap
+
+    def update_hovertool(self):
+        """Update the hovertool with available value."""
+        if "hover_tool" not in self.bokeh_models:
+            return
+
+        tooltips = []
+        data = self.data_sources["healpix"].data
+        for data_key in data.keys():
+            if not isinstance(data[data_key][0], collections.abc.Sequence):
+
+                if data_key == "center_ra":
+                    label = "RA"
+                elif data_key == "center_decl":
+                    label = "Decl"
+                else:
+                    label = data_key.replace("_", " ")
+
+                reference = f"@{data_key}"
+                tooltips.append((label, reference))
+
+        self.bokeh_models["hover_tool"].tooltips = tooltips
 
     def update_map_data(self):
         """Update all map related bokeh data sources"""
@@ -794,13 +837,19 @@ class SchedulerMap:
         """
         LOGGER.info("Disabling controls")
         for model in self.bokeh_models.values():
-            model.disabled = True
+            try:
+                model.disabled = True
+            except AttributeError:
+                pass
 
     def enable_controls(self):
         """Enable all controls."""
         LOGGER.info("Enabling controls")
         for model in self.bokeh_models.values():
-            model.disabled = False
+            try:
+                model.disabled = False
+            except AttributeError:
+                pass
 
     def make_figure(self):
         self.make_sphere_map(
