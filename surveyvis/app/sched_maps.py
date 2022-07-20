@@ -51,6 +51,19 @@ class SchedulerMap:
         ("Decl", "@center_decl"),
     ]
 
+    key_markup = """<h1>Key</h1>
+<ul>
+<li><b>Black line</b> Horizon</li>
+<li><b>Red line</b> ZD=70 deg.</li>
+<li><b>Green line</b> Ecliptic</li>
+<li><b>Blue line</b> Galactic plane</li>
+<li><b>Yellow dot</b> Sun position</li>
+<li><b>Gray dot</b> Moon position</li>
+<li><b>Red dot</b> Survey field(s)</li>
+<li><b>Greed dot</b> Telescope pointing</li>
+</ul>
+    """
+
     def __init__(self, init_key="AvoidDirectWind", nside=16):
         self._scheduler = None
         self.survey_index = [None, None]
@@ -238,6 +251,8 @@ class SchedulerMap:
         """
         LOGGER.info("Updating interface for new conditions")
         self.scheduler.update_conditions(conditions)
+        self.scheduler.request_observation()
+        self.update_chosen_survey()
         self.update_reward_table()
         self._update_scheduler_healpix_maps()
 
@@ -830,6 +845,21 @@ class SchedulerMap:
                 bokeh.models.TableColumn(field=c, title=c) for c in reward_df
             ]
 
+    def make_chosen_survey(self):
+        self.bokeh_models["chosen_survey"] = bokeh.models.Div(
+            text="<p>No chosen survey</p>"
+        )
+
+    def update_chosen_survey(self):
+        if "chosen_survey" in self.bokeh_models:
+            tier = f"tier {self.scheduler.survey_index[0]}"
+            survey = self.scheduler.survey_lists[self.scheduler.survey_index[0]][
+                self.scheduler.survey_index[1]
+            ].survey_name
+            self.bokeh_models[
+                "chosen_survey"
+            ].text = f"<p>Chosen survey: {tier}, {survey}</p>"
+
     def disable_controls(self):
         """Disable all controls.
 
@@ -897,8 +927,10 @@ class SchedulerMap:
             decorate=True,
         )
 
-        self.make_reward_table()
+        self.bokeh_models["key"] = bokeh.models.Div(text=self.key_markup)
 
+        self.make_reward_table()
+        self.make_chosen_survey()
         self.make_value_selector()
         self.make_survey_selector()
         self.make_tier_selector()
@@ -925,8 +957,10 @@ class SchedulerMap:
 
         figure = bokeh.layouts.row(
             bokeh.layouts.column(
+                self.bokeh_models["key"],
                 self.bokeh_models["armillary_sphere"],
                 *controls,
+                self.bokeh_models["chosen_survey"],
                 self.bokeh_models["reward_table"],
             ),
             bokeh.layouts.column(
@@ -1047,6 +1081,7 @@ def make_default_scheduler(mjd, nside=32):
         conditions.mjd = mjd
 
     scheduler.update_conditions(conditions)
+    scheduler.request_observation()
     return scheduler
 
 
