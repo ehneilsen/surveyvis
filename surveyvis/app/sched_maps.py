@@ -28,7 +28,8 @@ from surveyvis.plot.SphereMap import (
 from surveyvis.collect import read_scheduler, sample_pickle
 
 DEFAULT_MJD = 60200.2
-
+# DEFAULT_NSIDE = 16
+DEFAULT_NSIDE = 32
 
 def make_logger():
     logger = logging.getLogger("sched_logger")
@@ -64,7 +65,7 @@ class SchedulerMap:
 </ul>
     """
 
-    def __init__(self, init_key="AvoidDirectWind", nside=16):
+    def __init__(self, init_key="AvoidDirectWind", nside=DEFAULT_NSIDE):
         self._scheduler = None
         self.survey_index = [None, None]
         self.scheduler_healpix_maps = OrderedDict()
@@ -937,10 +938,12 @@ class SchedulerMap:
         self.make_pickle_entry_box()
         self.make_time_selector()
 
-        controls = [
+        arm_controls = [
             self.bokeh_models["alt_slider"],
             self.bokeh_models["az_slider"],
         ]
+
+        controls = [self.bokeh_models["file_input_box"]]
 
         if self.observatory is not None:
             self.make_time_input_box()
@@ -949,7 +952,6 @@ class SchedulerMap:
 
         controls += [
             self.bokeh_models["lst_slider"],
-            self.bokeh_models["file_input_box"],
             self.bokeh_models["tier_selector"],
             self.bokeh_models["survey_selector"],
             self.bokeh_models["value_selector"],
@@ -957,16 +959,17 @@ class SchedulerMap:
 
         figure = bokeh.layouts.row(
             bokeh.layouts.column(
-                self.bokeh_models["key"],
-                self.bokeh_models["armillary_sphere"],
+                self.bokeh_models["altaz"],
                 *controls,
                 self.bokeh_models["chosen_survey"],
                 self.bokeh_models["reward_table"],
             ),
             bokeh.layouts.column(
-                self.bokeh_models["altaz"],
                 self.bokeh_models["planisphere"],
+                self.bokeh_models["key"],
                 self.bokeh_models["mollweide"],
+                self.bokeh_models["armillary_sphere"],
+                *arm_controls,
             ),
         )
 
@@ -974,7 +977,7 @@ class SchedulerMap:
 
 
 def make_scheduler_map_figure(
-    scheduler_pickle_fname=None, init_key="AvoidDirectWind", nside=16
+    scheduler_pickle_fname=None, init_key="AvoidDirectWind", nside=DEFAULT_NSIDE
 ):
     """Create a set of bekeh figures showing sky maps for scheduler behavior.
 
@@ -987,7 +990,7 @@ def make_scheduler_map_figure(
     init_key : `str`, optional
         Name of the initial map to show, by default 'AvoidDirectWind'
     nside : int, optional
-        Healpix nside to use for display, by default 16
+        Healpix nside to use for display, by default 32
 
     Returns
     -------
@@ -995,7 +998,7 @@ def make_scheduler_map_figure(
         A bokeh figure that can be displayed in a notebook (e.g. with
         ``bokeh.io.show``) or used to create a bokeh app.
     """
-    scheduler_map = SchedulerMap()
+    scheduler_map = SchedulerMap(nside=nside)
     figure = scheduler_map.make_figure()
 
     if scheduler_pickle_fname is not None:
