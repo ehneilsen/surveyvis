@@ -278,6 +278,7 @@ class SphereMap:
             Data source for healpixel values and bounds.
         """
         values = hp.ud_grade(hpvalues, nside)
+        values[values == hp.UNSEEN] = np.nan
         npix = hp.nside2npix(nside)
         npts = npix * 4 * bound_step
         hpids = np.arange(npix)

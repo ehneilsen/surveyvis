@@ -28,8 +28,9 @@ from surveyvis.plot.SphereMap import (
 from surveyvis.collect import read_scheduler, sample_pickle
 
 DEFAULT_MJD = 60200.2
-# DEFAULT_NSIDE = 16
-DEFAULT_NSIDE = 32
+DEFAULT_NSIDE = 16
+# DEFAULT_NSIDE = 32
+
 
 def make_logger():
     logger = logging.getLogger("sched_logger")
@@ -116,9 +117,30 @@ class SchedulerMap:
             return
 
         LOGGER.info(f"Creating conditions for mjd {value}")
+
         try:
-            self.observatory.mjd = value
+            # If we cannot go to the requested MJD, follback on
+            # on we can go to:
+            if value < self.observatory.sky_model.mjd_left.min():
+                LOGGER.info("Cannot go to requested date, going to earliest.")
+                self.observatory.mjd = self.observatory.sky_model.mjd_left.min() + 1.0
+            elif value > self.observatory.sky_model.mjd_right.max():
+                LOGGER.info("Cannot go to requested date, going to latest.")
+                self.observatory.mjd = self.observatory.sky_model.mjd_right.max() - 1.0
+            else:
+                self.observatory.mjd = value
+
             conditions = self.observatory.return_conditions()
+
+            # Make sure we have set a time at night, and if we have night
+            # go to the sunsrise or sunset on the same night.
+            if conditions.sun_n18_setting > self.observatory.mjd:
+                self.observatory.mjd = conditions.sun_n18_setting
+                conditions = self.observatory.return_conditions()
+            if conditions.sun_n18_rising < self.observatory.mjd:
+                self.observatory.mjd = conditions.sun_n18_rising
+                conditions = self.observatory.return_conditions()
+
             LOGGER.info("Conditions created")
         except (ValueError, AttributeError):
             # If we do not have the right cache of sky brightness
@@ -144,7 +166,8 @@ class SchedulerMap:
         for key in full_healpix_maps:
             new_key = key.replace(" ", "_").replace(".", "_")
             self.scheduler_healpix_maps[new_key] = hp.ud_grade(
-                full_healpix_maps[key], self.nside
+                full_healpix_maps[key],
+                self.nside,
             )
 
     @property
@@ -310,12 +333,13 @@ class SchedulerMap:
 
         time_selector.on_change("value_throttled", switch_time)
         self.bokeh_models["time_selector"] = time_selector
+        self.update_time_selector()
 
     def update_time_selector(self):
         """Update the time selector limits and value to match the date."""
         if "time_selector" in self.bokeh_models:
-            self.bokeh_models["time_selector"].start = self.conditions.sunset
-            self.bokeh_models["time_selector"].end = self.conditions.sunrise
+            self.bokeh_models["time_selector"].start = self.conditions.sun_n12_setting
+            self.bokeh_models["time_selector"].end = self.conditions.sun_n12_rising
             self.bokeh_models["time_selector"].value = self.conditions.mjd
 
     def make_time_input_box(self):
@@ -780,7 +804,8 @@ class SchedulerMap:
         new_data = dict(new_ds.data)
 
         for key in self.map_keys:
-            # The datasource might not have the healpixels in the same order
+            # The datasource might not have all healpixels
+            # or have them in the same order
             # so force the order by indexing on new_data["hpid"]
             new_data[key] = self.scheduler_healpix_maps[key][new_data["hpid"]]
 
