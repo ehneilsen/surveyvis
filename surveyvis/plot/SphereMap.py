@@ -1534,7 +1534,10 @@ def make_zscale_linear_cmap(
     values, field_name="value", palette="Inferno256", *args, **kwargs
 ):
     zscale_interval = astropy.visualization.ZScaleInterval(*args, **kwargs)
-    scale_limits = zscale_interval.get_limits(values)
+    if np.any(np.isfinite(values)):
+        scale_limits = zscale_interval.get_limits(values)
+    else:
+        scale_limits = [0, 1]
     cmap = bokeh.transform.linear_cmap(
         field_name, palette, scale_limits[0], scale_limits[1]
     )

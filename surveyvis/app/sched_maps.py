@@ -170,6 +170,34 @@ class SchedulerMap:
                 self.nside,
             )
 
+        survey = self.scheduler.survey_lists[self.survey_index[0]][self.survey_index[1]]
+        reward = survey.calc_reward_function(self.conditions)
+        if not (isinstance(reward, np.ndarray) and len(reward) > 1):
+            try:
+                basis_weights = survey.basis_weights
+                basis_functions = survey.basis_functions
+                supported_survey = True
+            except AttributeError:
+                supported_survey = False
+
+            if supported_survey:
+                npix = hp.nside2npix(self.nside)
+                reward = np.zeros(npix)
+                indx = np.arange(npix)
+                for bf, weight in zip(basis_functions, basis_weights):
+                    basis_value = bf(self.conditions, indx=indx)
+                    if isinstance(basis_value, np.ndarray):
+                        basis_value = hp.ud_grade(basis_value, self.nside)
+                    reward += basis_value * weight
+
+        if isinstance(reward, np.ndarray) and len(reward) > 1:
+            reward = hp.ud_grade(
+                reward,
+                self.nside,
+            )
+            if np.any(np.isfinite(reward)):
+                self.scheduler_healpix_maps["reward"] = reward
+
     @property
     def healpix_values(self):
         """Healpix numpy array for the current map."""
