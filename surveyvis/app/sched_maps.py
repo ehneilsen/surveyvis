@@ -62,7 +62,7 @@ class SchedulerMap:
 <li><b>Yellow dot</b> Sun position</li>
 <li><b>Gray dot</b> Moon position</li>
 <li><b>Red dot</b> Survey field(s)</li>
-<li><b>Greed dot</b> Telescope pointing</li>
+<li><b>Green dot</b> Telescope pointing</li>
 </ul>
     """
 
@@ -165,10 +165,15 @@ class SchedulerMap:
         )
         for key in full_healpix_maps:
             new_key = key.replace(" ", "_").replace(".", "_")
-            self.scheduler_healpix_maps[new_key] = hp.ud_grade(
-                full_healpix_maps[key],
-                self.nside,
-            )
+            values = full_healpix_maps[key]
+            if values.shape[0] != hp.nside2npix(self.nside):
+                values[np.isnan(values)] = hp.UNSEEN
+                values = hp.ud_grade(
+                    values,
+                    self.nside,
+                )
+                values[values == hp.UNSEEN] = np.nan
+            self.scheduler_healpix_maps[new_key] = values
 
         survey = self.scheduler.survey_lists[self.survey_index[0]][self.survey_index[1]]
         reward = survey.calc_reward_function(self.conditions)
@@ -187,14 +192,19 @@ class SchedulerMap:
                 for bf, weight in zip(basis_functions, basis_weights):
                     basis_value = bf(self.conditions, indx=indx)
                     if isinstance(basis_value, np.ndarray):
+                        basis_value[np.isnan(basis_value)] = hp.UNSEEN
                         basis_value = hp.ud_grade(basis_value, self.nside)
+                        basis_value[basis_value == hp.UNSEEN] = np.nan
                     reward += basis_value * weight
 
         if isinstance(reward, np.ndarray) and len(reward) > 1:
-            reward = hp.ud_grade(
-                reward,
-                self.nside,
-            )
+            if reward.shape[0] != hp.nside2npix(self.nside):
+                reward[np.isnan(reward)] = hp.UNSEEN
+                reward = hp.ud_grade(
+                    reward,
+                    self.nside,
+                )
+            reward[reward == hp.UNSEEN] = np.nan
             if np.any(np.isfinite(reward)):
                 self.scheduler_healpix_maps["reward"] = reward
 
@@ -814,7 +824,7 @@ class SchedulerMap:
             zenith_mask = self.scheduler_healpix_maps["Zenith_shadow_mask"]
             cmap_sample_data = self.healpix_values[zenith_mask == 1]
         elif "y_sky" in self.map_keys:
-            sb_mask = self.scheduler_healpix_maps["y_sky"] > 10
+            sb_mask = np.isfinite(self.scheduler_healpix_maps["y_sky"])
             cmap_sample_data = self.healpix_values[sb_mask]
             if len(cmap_sample_data) == 0:
                 # It's probably day, so the color map will be bad regardless.

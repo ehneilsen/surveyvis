@@ -277,6 +277,8 @@ class SphereMap:
         hpix_datasource : `bokeh.models.ColumnDataSource`
             Data source for healpixel values and bounds.
         """
+        values = np.copy(hpvalues)
+        values[np.isnan(values)] = hp.UNSEEN
         values = hp.ud_grade(hpvalues, nside)
         values[values == hp.UNSEEN] = np.nan
         npix = hp.nside2npix(nside)
