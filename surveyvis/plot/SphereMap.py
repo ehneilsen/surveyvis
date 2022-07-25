@@ -26,6 +26,11 @@ ProjSliders = namedtuple("ProjSliders", ["alt", "az", "lst"])
 
 APPROX_COORD_TRANSFORMS = True
 
+# Angles of excactly 90 degrees result in edge conditions, e.g.
+# horizon circles with gaps depending on how trig is rounded.
+# Define an "almost 90" to get consistent behaviour.
+ALMOST_90 = np.degrees(np.arccos(0) - 2 * np.finfo(float).resolution)
+
 
 class SphereMap:
     alt_limit = 0
@@ -739,7 +744,7 @@ class SphereMap:
         return circle
 
     def make_horizon_circle_points(
-        self, alt=90, az=0, radius=90.0, start_bear=0, end_bear=360, step=1
+        self, alt=ALMOST_90, az=0, radius=90.0, start_bear=0, end_bear=360, step=1
     ):
         """Define points in a circle with the center defined in horizon coords.
 
@@ -1067,13 +1072,15 @@ class SphereMap:
         self.plot.line(x=self.x_col, y=self.y_col, source=circle_points, **line_kwargs)
         return circle_points
 
-    def add_horizon(self, zd=90, data_source=None, circle_kwargs={}, line_kwargs={}):
+    def add_horizon(
+        self, zd=ALMOST_90, data_source=None, circle_kwargs={}, line_kwargs={}
+    ):
         """Add a circle parallel to the horizon.
 
         Parameters
         ----------
         zd : int, optional
-            Zenith distance of the circle (deg), by default 90
+            Zenith distance of the circle (deg), by default (almost) 90
         data_source : `bokeh.models.ColumnDataSource`, optional
             Bokeh data source for points on the circle,
             None if the should be generated.
