@@ -18,6 +18,7 @@ from surveyvis.collect import sample_pickle
 from surveyvis.plot.scheduler import SchedulerDisplay
 from surveyvis.plot.scheduler import LOGGER, DEFAULT_NSIDE
 
+
 class SchedulerDisplayApp(SchedulerDisplay):
     def make_pickle_entry_box(self):
         """Make the entry box for a file name from which to load state."""
@@ -191,6 +192,16 @@ class SchedulerDisplayApp(SchedulerDisplay):
                 self.bokeh_models["value_selector"].value = self.init_key
             else:
                 self.bokeh_models["value_selector"].value = self.map_keys[-1]
+
+    def update_time_display(self):
+        if "time_selector" in self.bokeh_models:
+            self.update_time_selector()
+
+        if "time_input_box" in self.bokeh_models:
+            self.update_time_input_box()
+
+    def update_survey_index_display(self):
+        self.update_tier_selector()
 
     def disable_controls(self):
         """Disable all controls.

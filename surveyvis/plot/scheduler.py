@@ -78,6 +78,8 @@ class SchedulerDisplay:
         self.glyphs = {}
         self.bokeh_models = {}
         self.sphere_maps = {}
+        self.notebook_handle = None
+        self._figure = None
         mjd = Time.now().mjd if DEFAULT_MJD is None else DEFAULT_MJD
         try:
             self.observatory = Model_observatory(mjd_start=mjd - 1)
@@ -229,6 +231,7 @@ class SchedulerDisplay:
         scheduler, conditions = read_scheduler(file_name)
         scheduler.update_conditions(conditions)
         self.scheduler = scheduler
+        self.update_display()
 
     @property
     def scheduler(self):
@@ -259,9 +262,17 @@ class SchedulerDisplay:
         if self.survey_index[1] is None:
             self.survey_index[1] = 0
 
-        self.update_time_selector()
+        self.update_time_display()
         self.conditions = scheduler.conditions
-        self.update_tier_selector()
+        self.update_survey_index_display()
+
+    def update_time_display(self):
+        # TODO
+        pass
+
+    def update_survey_index_display(self):
+        # TODO
+        pass
 
     @property
     def conditions(self):
@@ -296,11 +307,7 @@ class SchedulerDisplay:
                 self.sphere_maps["armillary_sphere"].lst * 24.0 / 360.0
             )
 
-        if "time_selector" in self.bokeh_models:
-            self.update_time_selector()
-
-        if "time_input_box" in self.bokeh_models:
-            self.update_time_input_box()
+        self.update_time_display()
 
         # Actually push the change out to the user's browser
         self.update_map_data()
@@ -822,6 +829,30 @@ class SchedulerDisplay:
         )
 
         return figure
+
+    @property
+    def figure(self):
+        """Return a figure for this display.
+
+        Returns
+        -------
+        figure : `bokeh.models.layouts.LayoutDOM`
+            A bokeh figure that can be displayed in a notebook (e.g. with
+            ``bokeh.io.show``) or used to create a bokeh app.
+        """
+        if self._figure is None:
+            self._figure = self.make_figure()
+
+        return self._figure
+
+    def show(self):
+        """Show the display."""
+        self.notebook_handle = bokeh.io.show(self.figure, notebook_handle=True)
+
+    def update_display(self):
+        """Update the display."""
+        if self.notebook_handle is not None:
+            bokeh.io.push_notebook(handle=self.notebook_handle)
 
 
 def make_default_scheduler(mjd, nside=32):
