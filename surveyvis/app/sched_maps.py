@@ -69,7 +69,7 @@ class SchedulerMap:
     def __init__(self, init_key="AvoidDirectWind", nside=DEFAULT_NSIDE):
         self._scheduler = None
         self.survey_index = [None, None]
-        self.scheduler_healpix_maps = OrderedDict()
+        self.healpix_maps = OrderedDict()
         self.init_key = init_key
         self.map_key = init_key
         self.nside = nside
@@ -90,7 +90,7 @@ class SchedulerMap:
     @property
     def map_keys(self):
         """Return keys for the available healpix maps"""
-        keys = list(self.scheduler_healpix_maps.keys())
+        keys = list(self.healpix_maps.keys())
         return keys
 
     @property
@@ -154,12 +154,12 @@ class SchedulerMap:
 
         self.conditions = conditions
 
-    def _update_scheduler_healpix_maps(self):
+    def _update_healpix_maps(self):
         """Update healpix values from the scheduler."""
         # Be sure we keep using the same dictionary, and just update it,
         # rather than use a new one because any new one we make won't propogate
         # into other callbacks.
-        self.scheduler_healpix_maps.clear()
+        self.healpix_maps.clear()
         full_healpix_maps = self.scheduler.get_healpix_maps(
             survey_index=self.survey_index, conditions=self.conditions
         )
@@ -173,7 +173,7 @@ class SchedulerMap:
                     self.nside,
                 )
                 values[values == hp.UNSEEN] = np.nan
-            self.scheduler_healpix_maps[new_key] = values
+            self.healpix_maps[new_key] = values
 
         survey = self.scheduler.survey_lists[self.survey_index[0]][self.survey_index[1]]
         reward = survey.calc_reward_function(self.conditions)
@@ -206,17 +206,17 @@ class SchedulerMap:
                 )
             reward[reward == hp.UNSEEN] = np.nan
             if np.any(np.isfinite(reward)):
-                self.scheduler_healpix_maps["reward"] = reward
+                self.healpix_maps["reward"] = reward
 
     @property
     def healpix_values(self):
         """Healpix numpy array for the current map."""
-        if len(self.scheduler_healpix_maps) == 0:
+        if len(self.healpix_maps) == 0:
             npix = hp.nside2npix(self.nside)
             values = np.ones(npix)
             return values
 
-        return self.scheduler_healpix_maps[self.map_key]
+        return self.healpix_maps[self.map_key]
 
     def make_pickle_entry_box(self):
         """Make the entry box for a file name from which to load state."""
@@ -316,7 +316,7 @@ class SchedulerMap:
         self.scheduler.request_observation()
         self.update_chosen_survey()
         self.update_reward_table()
-        self._update_scheduler_healpix_maps()
+        self._update_healpix_maps()
 
         # If the current map is no longer valid, pick a valid one.
         # Otherwise, keep displaying the same map.
@@ -475,7 +475,7 @@ class SchedulerMap:
         tier = self.survey_index[0]
         surveys_in_tier = [s.survey_name for s in self.scheduler.survey_lists[tier]]
         self.survey_index[1] = surveys_in_tier.index(survey)
-        self._update_scheduler_healpix_maps()
+        self._update_healpix_maps()
 
         # Note that updating the value selector triggers the
         # callback, which updates the maps themselves
@@ -821,10 +821,10 @@ class SchedulerMap:
         # sphere_map = ArmillarySphere(mjd=self.conditions.mjd)
 
         if "Zenith_shadow_mask" in self.map_keys:
-            zenith_mask = self.scheduler_healpix_maps["Zenith_shadow_mask"]
+            zenith_mask = self.healpix_maps["Zenith_shadow_mask"]
             cmap_sample_data = self.healpix_values[zenith_mask == 1]
         elif "y_sky" in self.map_keys:
-            sb_mask = np.isfinite(self.scheduler_healpix_maps["y_sky"])
+            sb_mask = np.isfinite(self.healpix_maps["y_sky"])
             cmap_sample_data = self.healpix_values[sb_mask]
             if len(cmap_sample_data) == 0:
                 # It's probably day, so the color map will be bad regardless.
@@ -845,7 +845,7 @@ class SchedulerMap:
             # The datasource might not have all healpixels
             # or have them in the same order
             # so force the order by indexing on new_data["hpid"]
-            new_data[key] = self.scheduler_healpix_maps[key][new_data["hpid"]]
+            new_data[key] = self.healpix_maps[key][new_data["hpid"]]
 
         # Replace the data to be shown
         self.data_sources["healpix"].data = new_data
