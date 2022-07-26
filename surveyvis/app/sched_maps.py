@@ -1,5 +1,4 @@
 import bokeh.plotting
-import numpy as np
 from astropy.time import Time
 
 import pandas as pd
@@ -140,16 +139,9 @@ class SchedulerDisplayApp(SchedulerDisplay):
     def update_tier_selector(self):
         """Update tier selector to represent tiers for the current survey."""
         if "tier_selector" in self.bokeh_models:
-            options = [f"tier {t}" for t in np.arange(len(self.scheduler.survey_lists))]
+            options = self.tier_names
             self.bokeh_models["tier_selector"].options = options
             self.bokeh_models["tier_selector"].value = options[self.survey_index[0]]
-
-    def select_tier(self, tier):
-        """Set the tier being displayed."""
-        LOGGER.info(f"swiching tier to {tier}")
-        self.survey_index[0] = self.bokeh_models["tier_selector"].options.index(tier)
-        self.survey_index[1] = 0
-        self.update_survey_selector()
 
     def make_survey_selector(self):
         """Create the survey selector bokeh model."""
@@ -200,7 +192,7 @@ class SchedulerDisplayApp(SchedulerDisplay):
         if "time_input_box" in self.bokeh_models:
             self.update_time_input_box()
 
-    def update_survey_index_display(self):
+    def update_displayed_value_metadata(self):
         self.update_tier_selector()
 
     def disable_controls(self):

@@ -264,15 +264,7 @@ class SchedulerDisplay:
 
         self.update_time_display()
         self.conditions = scheduler.conditions
-        self.update_survey_index_display()
-
-    def update_time_display(self):
-        # TODO
-        pass
-
-    def update_survey_index_display(self):
-        # TODO
-        pass
+        self.update_displayed_value_metadata()
 
     @property
     def conditions(self):
@@ -314,6 +306,26 @@ class SchedulerDisplay:
 
         LOGGER.info("Finished updating conditions")
 
+    @property
+    def tier_names(self):
+        """List of names of tiers in current survey."""
+        tiers = [f"tier {t}" for t in np.arange(len(self.scheduler.survey_lists))]
+        return tiers
+
+    def select_tier(self, tier):
+        """Set the tier being displayed."""
+        LOGGER.info(f"swiching tier to {tier}")
+        self.survey_index[0] = self.tier_names.index(tier)
+        self.survey_index[1] = 0
+        self.update_survey_selector()
+
+    @property
+    def surveys_in_tier(self):
+        """List of surveys in the current tier."""
+        tier = self.survey_index[0]
+        surveys_in_tier = [s.survey_name for s in self.scheduler.survey_lists[tier]]
+        return surveys_in_tier
+
     def select_survey(self, survey):
         """Update the display to show a given survey.
 
@@ -322,16 +334,10 @@ class SchedulerDisplay:
         survey : `str`
             The name of the survey to select.
         """
-        tier = self.survey_index[0]
-        surveys_in_tier = [s.survey_name for s in self.scheduler.survey_lists[tier]]
-        self.survey_index[1] = surveys_in_tier.index(survey)
-
-        # Be user we keep using the same survey_index list, and just update it,
+        # keep using the same survey_index list, and just update it,
         # not create a new one, because any new one we make won't propogate
         # into other callbacks.
-        tier = self.survey_index[0]
-        surveys_in_tier = [s.survey_name for s in self.scheduler.survey_lists[tier]]
-        self.survey_index[1] = surveys_in_tier.index(survey)
+        self.survey_index[1] = self.surveys_in_tier.index(survey)
         self._update_healpix_maps()
 
         # Note that updating the value selector triggers the
@@ -717,6 +723,7 @@ class SchedulerDisplay:
         self.update_moon_marker_data()
         self.update_sun_marker_data()
         self.update_survey_marker_data()
+        self.update_displayed_value_metadata()
 
     def make_reward_table(self):
         # Bokeh's DataTable doesn't like to expand to accommodate extra rows,
@@ -757,6 +764,29 @@ class SchedulerDisplay:
             self.bokeh_models[
                 "chosen_survey"
             ].text = f"<p>Chosen survey: {tier}, {survey}</p>"
+
+    def make_displayed_value_metadata(self):
+        self.bokeh_models["displayed_value_metadata"] = bokeh.models.Div(
+            text="<p>No displayed values</p>"
+        )
+
+    def update_displayed_value_metadata(self):
+        if "displayed_value_metadata" in self.bokeh_models:
+            tier = f"tier {self.survey_index[0]}"
+            survey = self.scheduler.survey_lists[self.survey_index[0]][
+                self.survey_index[1]
+            ].survey_name
+            self.bokeh_models[
+                "displayed_value_metadata"
+            ].text = f"<p>Displayed value: {self.map_key} from {tier}, {survey}</p>"
+
+    def make_time_display(self):
+        self.bokeh_models["time_display"] = bokeh.models.Div(text="<p>No time.</p>")
+
+    def update_time_display(self):
+        iso_time = Time(self.mjd, format="mjd", scale="utc").iso
+        if "time_display" in self.bokeh_models:
+            self.bokeh_models["time_display"].text = f"<p>{iso_time}</p>"
 
     def make_figure(self):
         self.make_sphere_map(
@@ -804,7 +834,8 @@ class SchedulerDisplay:
         )
 
         self.bokeh_models["key"] = bokeh.models.Div(text=self.key_markup)
-
+        self.make_time_display()
+        self.make_displayed_value_metadata()
         self.make_reward_table()
         self.make_chosen_survey()
 
@@ -816,6 +847,8 @@ class SchedulerDisplay:
         figure = bokeh.layouts.row(
             bokeh.layouts.column(
                 self.bokeh_models["altaz"],
+                self.bokeh_models["time_display"],
+                self.bokeh_models["displayed_value_metadata"],
                 self.bokeh_models["chosen_survey"],
                 self.bokeh_models["reward_table"],
             ),
