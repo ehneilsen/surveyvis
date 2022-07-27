@@ -66,7 +66,7 @@ class SchedulerDisplay:
 </ul>
     """
 
-    def __init__(self, init_key="AvoidDirectWind", nside=DEFAULT_NSIDE):
+    def __init__(self, init_key="AvoidDirectWind", nside=DEFAULT_NSIDE, scheduler=None):
         self._scheduler = None
         self.survey_index = [None, None]
         self.healpix_maps = OrderedDict()
@@ -86,8 +86,10 @@ class SchedulerDisplay:
         except ValueError:
             self.observatory = None
 
-        default_scheduler = make_default_scheduler(mjd, nside=nside)
-        self.scheduler = default_scheduler
+        if scheduler is None:
+            scheduler = make_default_scheduler(mjd, nside=nside)
+
+        self.scheduler = scheduler
 
     @property
     def map_keys(self):
