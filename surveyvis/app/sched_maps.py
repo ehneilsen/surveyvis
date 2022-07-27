@@ -30,7 +30,12 @@ class SchedulerDisplayApp(SchedulerDisplay):
             def do_switch_pickle():
                 LOGGER.info(f"Loading {new}.")
                 try:
+                    # load updates the conditions, which updates
+                    # some bokeh models...
                     self.load(new)
+                    # selecting the tier selector initiates a sequence of
+                    # callbacks that update other bokeh models.
+                    self.update_tier_selector()
                 except FileNotFoundError:
                     LOGGER.info("File not found.")
                     pass
@@ -53,6 +58,19 @@ class SchedulerDisplayApp(SchedulerDisplay):
 
         file_input_box.on_change("value", switch_pickle)
         self.bokeh_models["file_input_box"] = file_input_box
+
+    def _set_conditions(self, conditions):
+        super()._set_conditions(conditions)
+        self.update_healpix_bokeh_model()
+        self.update_reward_table_bokeh_model()
+        self.update_hovertool_bokeh_model()
+        self.update_telescope_marker_bokeh_model()
+        self.update_moon_marker_bokeh_model()
+        self.update_sun_marker_bokeh_model()
+        self.update_survey_marker_bokeh_model()
+        self.update_chosen_survey_bokeh_model()
+        self.update_time_selector_bokeh_model()
+        self.update_time_input_box_bokeh_model()
 
     def make_time_selector(self):
         """Create the time selector slider bokeh model."""
@@ -83,9 +101,9 @@ class SchedulerDisplayApp(SchedulerDisplay):
 
         time_selector.on_change("value_throttled", switch_time)
         self.bokeh_models["time_selector"] = time_selector
-        self.update_time_selector()
+        self.update_time_selector_bokeh_model()
 
-    def update_time_selector(self):
+    def update_time_selector_bokeh_model(self):
         """Update the time selector limits and value to match the date."""
         if "time_selector" in self.bokeh_models:
             self.bokeh_models["time_selector"].start = self.conditions.sun_n12_setting
@@ -96,7 +114,7 @@ class SchedulerDisplayApp(SchedulerDisplay):
         """Create the time entry box bokeh model."""
         time_input_box = bokeh.models.TextInput(title="Date and time (UTC):")
         self.bokeh_models["time_input_box"] = time_input_box
-        self.update_time_input_box()
+        self.update_time_input_box_bokeh_model()
 
         def switch_time(attrname, old, new):
             new_mjd = pd.to_datetime(new, utc=True).to_julian_date() - 2400000.5
@@ -119,7 +137,7 @@ class SchedulerDisplayApp(SchedulerDisplay):
 
         time_input_box.on_change("value", switch_time)
 
-    def update_time_input_box(self):
+    def update_time_input_box_bokeh_model(self):
         """Update the time selector limits and value to match the date."""
         if "time_input_box" in self.bokeh_models:
             iso_time = Time(self.mjd, format="mjd", scale="utc").iso
@@ -143,6 +161,11 @@ class SchedulerDisplayApp(SchedulerDisplay):
             self.bokeh_models["tier_selector"].options = options
             self.bokeh_models["tier_selector"].value = options[self.survey_index[0]]
 
+    def select_tier(self, tier):
+        """Set the tier being displayed."""
+        super().select_tier(tier)
+        self.update_survey_selector()
+
     def make_survey_selector(self):
         """Create the survey selector bokeh model."""
         survey_selector = bokeh.models.Select(value=None, options=[None])
@@ -162,14 +185,22 @@ class SchedulerDisplayApp(SchedulerDisplay):
             self.bokeh_models["survey_selector"].options = options
             self.bokeh_models["survey_selector"].value = options[self.survey_index[1]]
 
+    def select_survey(self, survey):
+        """Set the tier being displayed."""
+        super().select_survey(survey)
+        # Note that updating the value selector triggers the
+        # callback, which updates the maps themselves
+        self.update_value_selector()
+        self.update_reward_table_bokeh_model()
+        self.update_hovertool_bokeh_model()
+        self.update_survey_marker_bokeh_model()
+
     def make_value_selector(self):
         """Create the bokeh model to select which value to show in maps."""
         value_selector = bokeh.models.Select(value=None, options=[None])
 
         def switch_value(attrname, old, new):
-            LOGGER.info(f"Switching value to {new}")
-            self.map_key = new
-            self.update_map_data()
+            self.select_value(new)
 
         value_selector.on_change("value", switch_value)
         self.bokeh_models["value_selector"] = value_selector
@@ -185,14 +216,19 @@ class SchedulerDisplayApp(SchedulerDisplay):
             else:
                 self.bokeh_models["value_selector"].value = self.map_keys[-1]
 
-    def update_time_display(self):
+    def select_value(self, map_key):
+        """Set the tier being displayed."""
+        super().select_value(map_key)
+        self.update_healpix_bokeh_model()
+
+    def update_time_display_bokeh_model(self):
         if "time_selector" in self.bokeh_models:
-            self.update_time_selector()
+            self.update_time_selector_bokeh_model()
 
         if "time_input_box" in self.bokeh_models:
-            self.update_time_input_box()
+            self.update_time_input_box_bokeh_model()
 
-    def update_displayed_value_metadata(self):
+    def update_displayed_value_metadata_bokeh_model(self):
         self.update_tier_selector()
 
     def disable_controls(self):

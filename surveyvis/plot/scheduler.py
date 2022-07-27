@@ -262,9 +262,8 @@ class SchedulerDisplay:
         if self.survey_index[1] is None:
             self.survey_index[1] = 0
 
-        self.update_time_display()
         self.conditions = scheduler.conditions
-        self.update_displayed_value_metadata()
+        self.update_display()
 
     @property
     def conditions(self):
@@ -279,11 +278,14 @@ class SchedulerDisplay:
         conditions : `rubin_sim.scheduler.features.conditions.Conditions`
             The new conditions.
         """
+        self._set_conditions(conditions)
+
+    def _set_conditions(self, conditions):
+        # Separated from the decorated setter so that it can be overridden
+        # in a subclass.
         LOGGER.info("Updating interface for new conditions")
         self.scheduler.update_conditions(conditions)
         self.scheduler.request_observation()
-        self.update_chosen_survey()
-        self.update_reward_table()
         self._update_healpix_maps()
 
         # If the current map is no longer valid, pick a valid one.
@@ -299,10 +301,8 @@ class SchedulerDisplay:
                 self.sphere_maps["armillary_sphere"].lst * 24.0 / 360.0
             )
 
-        self.update_time_display()
-
         # Actually push the change out to the user's browser
-        self.update_map_data()
+        self.update_display()
 
         LOGGER.info("Finished updating conditions")
 
@@ -317,7 +317,7 @@ class SchedulerDisplay:
         LOGGER.info(f"swiching tier to {tier}")
         self.survey_index[0] = self.tier_names.index(tier)
         self.survey_index[1] = 0
-        self.update_survey_selector()
+        self.update_display()
 
     @property
     def surveys_in_tier(self):
@@ -339,13 +339,19 @@ class SchedulerDisplay:
         # into other callbacks.
         self.survey_index[1] = self.surveys_in_tier.index(survey)
         self._update_healpix_maps()
+        self.update_display()
 
-        # Note that updating the value selector triggers the
-        # callback, which updates the maps themselves
-        self.update_value_selector()
-        self.update_survey_marker_data()
-        self.update_reward_table()
-        self.update_hovertool()
+    def select_value(self, map_key):
+        """Select the value to be displayed on the maps.
+
+        Parameters
+        ----------
+        map_key : `str`
+            The name of the value to be mapped
+        """
+        LOGGER.info(f"Switching value to {map_key}")
+        self.map_key = map_key
+        self.update_display()
 
     def make_sphere_map(
         self,
@@ -539,7 +545,7 @@ class SchedulerDisplay:
         )
         return data_source
 
-    def update_moon_marker_data(self):
+    def update_moon_marker_bokeh_model(self):
         """Update the moon data source."""
         if "telescope_marker" not in self.data_sources:
             return
@@ -573,7 +579,7 @@ class SchedulerDisplay:
         )
         return data_source
 
-    def update_sun_marker_data(self):
+    def update_sun_marker_bokeh_model(self):
         """Update the sun data source."""
         if "telescope_marker" not in self.data_sources:
             return
@@ -607,7 +613,7 @@ class SchedulerDisplay:
         )
         return data_source
 
-    def update_telescope_marker_data(self):
+    def update_telescope_marker_bokeh_model(self):
         """Update the telescope pointing data source."""
         if "telescope_marker" not in self.data_sources:
             return
@@ -641,7 +647,7 @@ class SchedulerDisplay:
         )
         return data_source
 
-    def update_survey_marker_data(self):
+    def update_survey_marker_bokeh_model(self):
         """Update the survey pointing data source."""
         if "survey_marker" not in self.data_sources:
             return
@@ -652,7 +658,7 @@ class SchedulerDisplay:
         if "survey_marker" in self.data_sources:
             self.data_sources["survey_marker"].data = data
 
-    def update_healpix_data(self):
+    def update_healpix_bokeh_model(self):
         """Update the healpix value data source."""
         if "healpix" not in self.data_sources:
             return
@@ -694,7 +700,7 @@ class SchedulerDisplay:
             sphere_map.healpix_glyph.fill_color = self.healpix_cmap
             sphere_map.healpix_glyph.line_color = self.healpix_cmap
 
-    def update_hovertool(self):
+    def update_hovertool_bokeh_model(self):
         """Update the hovertool with available value."""
         if "hover_tool" not in self.bokeh_models:
             return
@@ -716,15 +722,6 @@ class SchedulerDisplay:
 
         self.bokeh_models["hover_tool"].tooltips = tooltips
 
-    def update_map_data(self):
-        """Update all map related bokeh data sources"""
-        self.update_healpix_data()
-        self.update_telescope_marker_data()
-        self.update_moon_marker_data()
-        self.update_sun_marker_data()
-        self.update_survey_marker_data()
-        self.update_displayed_value_metadata()
-
     def make_reward_table(self):
         # Bokeh's DataTable doesn't like to expand to accommodate extra rows,
         # so create a dummy with lots of rows initially.
@@ -738,7 +735,7 @@ class SchedulerDisplay:
             columns=[bokeh.models.TableColumn(field=c, title=c) for c in df],
         )
 
-    def update_reward_table(self):
+    def update_reward_table_bokeh_model(self):
         if "reward_table" in self.bokeh_models:
             reward_df = self.scheduler.survey_lists[self.survey_index[0]][
                 self.survey_index[1]
@@ -755,7 +752,7 @@ class SchedulerDisplay:
             text="<p>No chosen survey</p>"
         )
 
-    def update_chosen_survey(self):
+    def update_chosen_survey_bokeh_model(self):
         if "chosen_survey" in self.bokeh_models:
             tier = f"tier {self.scheduler.survey_index[0]}"
             survey = self.scheduler.survey_lists[self.scheduler.survey_index[0]][
@@ -770,7 +767,7 @@ class SchedulerDisplay:
             text="<p>No displayed values</p>"
         )
 
-    def update_displayed_value_metadata(self):
+    def update_displayed_value_metadata_bokeh_model(self):
         if "displayed_value_metadata" in self.bokeh_models:
             tier = f"tier {self.survey_index[0]}"
             survey = self.scheduler.survey_lists[self.survey_index[0]][
@@ -783,7 +780,7 @@ class SchedulerDisplay:
     def make_time_display(self):
         self.bokeh_models["time_display"] = bokeh.models.Div(text="<p>No time.</p>")
 
-    def update_time_display(self):
+    def update_time_display_bokeh_model(self):
         iso_time = Time(self.mjd, format="mjd", scale="utc").iso
         if "time_display" in self.bokeh_models:
             self.bokeh_models["time_display"].text = f"<p>{iso_time}</p>"
@@ -882,9 +879,23 @@ class SchedulerDisplay:
         """Show the display."""
         self.notebook_handle = bokeh.io.show(self.figure, notebook_handle=True)
 
+    def update_bokeh_models(self):
+        """Update all bokeh models with current data."""
+        self.update_reward_table_bokeh_model()
+        self.update_healpix_bokeh_model()
+        self.update_hovertool_bokeh_model()
+        self.update_telescope_marker_bokeh_model()
+        self.update_moon_marker_bokeh_model()
+        self.update_sun_marker_bokeh_model()
+        self.update_survey_marker_bokeh_model()
+        self.update_time_display_bokeh_model()
+        self.update_displayed_value_metadata_bokeh_model()
+        self.update_chosen_survey_bokeh_model()
+
     def update_display(self):
         """Update the display."""
         if self.notebook_handle is not None:
+            self.update_bokeh_models()
             bokeh.io.push_notebook(handle=self.notebook_handle)
 
 
