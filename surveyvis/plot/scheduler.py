@@ -156,6 +156,41 @@ class SchedulerDisplay:
 
         self.conditions = conditions
 
+    @property
+    def time(self):
+        """Return the time as an astropy Time objec.
+
+        Return
+        ------
+        time : `astropy.time.Time`
+            The time
+        """
+        time = Time(self.mjd, format="mjd", scale="utc")
+        time.format = "iso"
+        return time
+
+    @time.setter
+    def time(self, time):
+        """Set the time according to a time string.
+
+        Parameters
+        ----------
+        time : `astropy.time.Time` or `str`
+            The new time
+        Parameterers are the same as for `pandas.to_datetime`.
+        """
+        if isinstance(time, Time):
+            new_mjd = time.mjd
+        elif isinstance(time, pd.Timestamp):
+            new_mjd = time.to_julian_date() - 2400000.5
+        else:
+            try:
+                new_mjd = Time(time).mjd
+            except ValueError:
+                new_mjd = pd.to_datetime(time, utc=True).to_julian_date() - 2400000.5
+
+        self.mjd = new_mjd
+
     def _update_healpix_maps(self):
         """Update healpix values from the scheduler."""
         # Be sure we keep using the same dictionary, and just update it,
