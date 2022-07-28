@@ -696,6 +696,8 @@ class SchedulerDisplay:
         if "healpix" not in self.data_sources:
             return
 
+        LOGGER.debug("Updating helpix bokeh models")
+
         sphere_map = tuple(self.sphere_maps.values())[0]
         # sphere_map = ArmillarySphere(mjd=self.conditions.mjd)
 
@@ -895,6 +897,7 @@ class SchedulerDisplay:
 
     def update_bokeh_models(self):
         """Update all bokeh models with current data."""
+        LOGGER.debug("Updating bokeh data models.")
         self.update_reward_table_bokeh_model()
         self.update_healpix_bokeh_model()
         self.update_hovertool_bokeh_model()
@@ -929,15 +932,6 @@ class SchedulerNotebookDisplay(SchedulerDisplay):
         # called by the parent __init__ will run.
         self.notebook_handle = None
         super().__init__(*args, **kwargs)
-
-    def load(self, file_name):
-        # docstring in parent class
-        super().load(file_name)
-        self.update_display()
-
-    def _set_scheduler(self, scheduler):
-        super()._set_scheduler(scheduler)
-        self.update_display()
 
     def _set_conditions(self, conditions):
         super()._set_conditions(conditions)
