@@ -78,7 +78,6 @@ class SchedulerDisplay:
         self.glyphs = {}
         self.bokeh_models = {}
         self.sphere_maps = {}
-        self.notebook_handle = None
         self._figure = None
         mjd = Time.now().mjd if DEFAULT_MJD is None else DEFAULT_MJD
         try:
@@ -268,7 +267,6 @@ class SchedulerDisplay:
         scheduler, conditions = read_scheduler(file_name)
         scheduler.update_conditions(conditions)
         self.scheduler = scheduler
-        self.update_display()
 
     @property
     def scheduler(self):
@@ -283,6 +281,11 @@ class SchedulerDisplay:
         scheduler : `rubin_sim.scheduler.schedulers.core_scheduler.Core_scheduler`  # noqa W505
             The new scheduler to visualize
         """
+        # Work separated into _set_scheduler so that it can be overriden by
+        # subclasses.
+        self._set_scheduler(scheduler)
+
+    def _set_scheduler(self, scheduler):
         LOGGER.debug("Setting the scheduler")
         self._scheduler = scheduler
 
@@ -300,7 +303,6 @@ class SchedulerDisplay:
             self.survey_index[1] = 0
 
         self.conditions = scheduler.conditions
-        self.update_display()
 
     @property
     def conditions(self):
@@ -338,9 +340,6 @@ class SchedulerDisplay:
                 self.sphere_maps["armillary_sphere"].lst * 24.0 / 360.0
             )
 
-        # Actually push the change out to the user's browser
-        self.update_display()
-
         LOGGER.info("Finished updating conditions")
 
     @property
@@ -354,7 +353,6 @@ class SchedulerDisplay:
         LOGGER.info(f"swiching tier to {tier}")
         self.survey_index[0] = self.tier_names.index(tier)
         self.survey_index[1] = 0
-        self.update_display()
 
     @property
     def surveys_in_tier(self):
@@ -376,7 +374,6 @@ class SchedulerDisplay:
         # into other callbacks.
         self.survey_index[1] = self.surveys_in_tier.index(survey)
         self._update_healpix_maps()
-        self.update_display()
 
     def select_value(self, map_key):
         """Select the value to be displayed on the maps.
@@ -388,7 +385,6 @@ class SchedulerDisplay:
         """
         LOGGER.info(f"Switching value to {map_key}")
         self.map_key = map_key
-        self.update_display()
 
     def make_sphere_map(
         self,
@@ -897,6 +893,19 @@ class SchedulerDisplay:
 
         return figure
 
+    def update_bokeh_models(self):
+        """Update all bokeh models with current data."""
+        self.update_reward_table_bokeh_model()
+        self.update_healpix_bokeh_model()
+        self.update_hovertool_bokeh_model()
+        self.update_telescope_marker_bokeh_model()
+        self.update_moon_marker_bokeh_model()
+        self.update_sun_marker_bokeh_model()
+        self.update_survey_marker_bokeh_model()
+        self.update_time_display_bokeh_model()
+        self.update_displayed_value_metadata_bokeh_model()
+        self.update_chosen_survey_bokeh_model()
+
     @property
     def figure(self):
         """Return a figure for this display.
@@ -912,28 +921,52 @@ class SchedulerDisplay:
 
         return self._figure
 
-    def show(self):
-        """Show the display."""
-        self.notebook_handle = bokeh.io.show(self.figure, notebook_handle=True)
 
-    def update_bokeh_models(self):
-        """Update all bokeh models with current data."""
-        self.update_reward_table_bokeh_model()
-        self.update_healpix_bokeh_model()
-        self.update_hovertool_bokeh_model()
-        self.update_telescope_marker_bokeh_model()
-        self.update_moon_marker_bokeh_model()
-        self.update_sun_marker_bokeh_model()
-        self.update_survey_marker_bokeh_model()
-        self.update_time_display_bokeh_model()
-        self.update_displayed_value_metadata_bokeh_model()
-        self.update_chosen_survey_bokeh_model()
+class SchedulerNotebookDisplay(SchedulerDisplay):
+    def __init__(self, *args, **kwargs):
+        # docstring in parent class
+        # notebook_handle must be initialized so overridden methods
+        # called by the parent __init__ will run.
+        self.notebook_handle = None
+        super().__init__(*args, **kwargs)
+
+    def load(self, file_name):
+        # docstring in parent class
+        super().load(file_name)
+        self.update_display()
+
+    def _set_scheduler(self, scheduler):
+        super()._set_scheduler(scheduler)
+        self.update_display()
+
+    def _set_conditions(self, conditions):
+        super()._set_conditions(conditions)
+        self.update_display()
+
+    def select_tier(self, tier):
+        # docstring in parent class
+        super().select_tier(tier)
+        self.update_display()
+
+    def select_survey(self, survey):
+        # docstring in parent class
+        super().select_survey(survey)
+        self.update_display()
+
+    def select_value(self, value):
+        # docstring in parent class
+        super().select_value(value)
+        self.update_display()
 
     def update_display(self):
         """Update the display."""
         if self.notebook_handle is not None:
             self.update_bokeh_models()
             bokeh.io.push_notebook(handle=self.notebook_handle)
+
+    def show(self):
+        """Show the display."""
+        self.notebook_handle = bokeh.io.show(self.figure, notebook_handle=True)
 
 
 def make_default_scheduler(mjd, nside=32):
