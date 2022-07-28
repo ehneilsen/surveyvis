@@ -478,7 +478,7 @@ class SchedulerDisplay:
         )
 
         if "sun_marker" not in self.data_sources:
-            self.data_sources["sun_marker"] = self.make_moon_marker_data_source(
+            self.data_sources["sun_marker"] = self.make_sun_marker_data_source(
                 sphere_map
             )
 
@@ -500,7 +500,7 @@ class SchedulerDisplay:
         decl_name="telDec",
         source_units="radians",
     ):
-        """Create a bokeh datasource for the moon.
+        """Create a bokeh datasource for an object at a set of coordinates.
 
         Parameters
         ----------
