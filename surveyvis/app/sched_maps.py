@@ -30,12 +30,9 @@ class SchedulerDisplayApp(SchedulerDisplay):
             def do_switch_pickle():
                 LOGGER.info(f"Loading {new}.")
                 try:
-                    # load updates the conditions, which updates
-                    # some bokeh models...
+                    # load updates the survey & conditions, which updates
+                    # bokeh models...
                     self.load(new)
-                    # selecting the tier selector initiates a sequence of
-                    # callbacks that update other bokeh models.
-                    self.update_tier_selector()
                 except FileNotFoundError:
                     LOGGER.info("File not found.")
                     pass
@@ -58,6 +55,12 @@ class SchedulerDisplayApp(SchedulerDisplay):
 
         file_input_box.on_change("value", switch_pickle)
         self.bokeh_models["file_input_box"] = file_input_box
+
+    def _set_scheduler(self, scheduler):
+        LOGGER.info("Setting scheduler")
+        super()._set_scheduler(scheduler)
+        self.update_tier_selector()
+        self.update_reward_summary_table_bokeh_model()
 
     def _set_conditions(self, conditions):
         super()._set_conditions(conditions)
@@ -300,7 +303,15 @@ class SchedulerDisplayApp(SchedulerDisplay):
 
         self.bokeh_models["key"] = bokeh.models.Div(text=self.key_markup)
 
+        self.bokeh_models["reward_table_title"] = bokeh.models.Div(
+            text="<h2>Basis functions for displayed survey</h2>"
+        )
         self.make_reward_table()
+
+        self.bokeh_models["reward_summary_table_title"] = bokeh.models.Div(
+            text="<h2>Rewards for all survey schedulers</h2>"
+        )
+        self.make_reward_summary_table()
         self.make_chosen_survey()
         self.make_value_selector()
         self.make_survey_selector()
@@ -332,7 +343,10 @@ class SchedulerDisplayApp(SchedulerDisplay):
                 self.bokeh_models["altaz"],
                 *controls,
                 self.bokeh_models["chosen_survey"],
+                self.bokeh_models["reward_table_title"],
                 self.bokeh_models["reward_table"],
+                self.bokeh_models["reward_summary_table_title"],
+                self.bokeh_models["reward_summary_table"],
             ),
             bokeh.layouts.column(
                 self.bokeh_models["planisphere"],

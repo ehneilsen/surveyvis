@@ -542,7 +542,7 @@ class SchedulerDisplay:
         if decl is None:
             decl = np.array([])
         LOGGER.debug(
-            f"{name} coordinates: ra={np.degrees(ra)}, decl={np.degrees(decl)}"
+            f"{name.capitalize()} coordinates: ra={np.degrees(ra)}, decl={np.degrees(decl)}"
         )
         if source_units == "radians":
             ra_deg = np.degrees(ra)
@@ -820,6 +820,70 @@ class SchedulerDisplay:
         if "time_display" in self.bokeh_models:
             self.bokeh_models["time_display"].text = f"<p>{iso_time}</p>"
 
+    def make_scheduler_summary_df(self):
+        """Summarize the reward from each scheduler
+
+        Returns
+        -------
+        survey_df : `pandas.DataFrame`
+            A table showing the reword for each feasible survey, and the
+            basis functions that result in it being infeasible for the rest.
+        """
+        reward_df = self.scheduler.make_reward_df(self.conditions)
+        summary_df = reward_df.reset_index()
+
+        def make_tier_name(row):
+            tier_name = f"tier {row.list_index}"
+            return tier_name
+
+        summary_df["tier"] = summary_df.apply(make_tier_name, axis=1)
+
+        def get_survey_name(row):
+            survey_name = self.scheduler.survey_lists[row.list_index][
+                row.survey_index
+            ].survey_name
+            return survey_name
+
+        summary_df["survey_name"] = summary_df.apply(get_survey_name, axis=1)
+
+        def make_survey_row(survey_bfs):
+            infeasible_bf = ", ".join(
+                survey_bfs.query("not feasible").basis_function.to_list()
+            )
+            infeasible = ~np.all(survey_bfs.feasible)
+            reward = infeasible_bf if infeasible else survey_bfs.accum_reward.iloc[-1]
+            survey_row = pd.Series({"reward": reward, "infeasible": infeasible})
+            return survey_row
+
+        survey_df = summary_df.groupby(["tier", "survey_name"]).apply(make_survey_row)
+
+        return survey_df["reward"].reset_index()
+
+    def make_reward_summary_table(self):
+        # Bokeh's DataTable doesn't like to expand to accommodate extra rows,
+        # so create a dummy with lots of rows initially.
+        df = pd.DataFrame(
+            np.nan,
+            index=range(300),
+            columns=["tier", "survey_name", "reward"],
+        )
+        self.bokeh_models["reward_summary_table"] = bokeh.models.DataTable(
+            source=bokeh.models.ColumnDataSource(df),
+            columns=[bokeh.models.TableColumn(field=c, title=c) for c in df],
+        )
+        self.update_reward_summary_table_bokeh_model()
+
+    def update_reward_summary_table_bokeh_model(self):
+        LOGGER.info("Updating reward summary table bokeh model")
+        if "reward_summary_table" in self.bokeh_models:
+            scheduler_summary_df = self.make_scheduler_summary_df()
+            self.bokeh_models[
+                "reward_summary_table"
+            ].source = bokeh.models.ColumnDataSource(scheduler_summary_df)
+            self.bokeh_models["reward_summary_table"].columns = [
+                bokeh.models.TableColumn(field=c, title=c) for c in scheduler_summary_df
+            ]
+
     def make_figure(self):
         self.make_sphere_map(
             "armillary_sphere",
@@ -868,7 +932,16 @@ class SchedulerDisplay:
         self.bokeh_models["key"] = bokeh.models.Div(text=self.key_markup)
         self.make_time_display()
         self.make_displayed_value_metadata()
+
+        self.bokeh_models["reward_table_title"] = bokeh.models.Div(
+            text="<h2>Basis functions for displayed survey</h2>"
+        )
         self.make_reward_table()
+
+        self.bokeh_models["reward_summary_table_title"] = bokeh.models.Div(
+            text="<h2>Rewards for all survey schedulers</h2>"
+        )
+        self.make_reward_summary_table()
         self.make_chosen_survey()
 
         arm_controls = [
@@ -882,7 +955,10 @@ class SchedulerDisplay:
                 self.bokeh_models["time_display"],
                 self.bokeh_models["displayed_value_metadata"],
                 self.bokeh_models["chosen_survey"],
+                self.bokeh_models["reward_table_title"],
                 self.bokeh_models["reward_table"],
+                self.bokeh_models["reward_summary_table_title"],
+                self.bokeh_models["reward_summary_table"],
             ),
             bokeh.layouts.column(
                 self.bokeh_models["planisphere"],
@@ -899,6 +975,7 @@ class SchedulerDisplay:
         """Update all bokeh models with current data."""
         LOGGER.debug("Updating bokeh data models.")
         self.update_reward_table_bokeh_model()
+        self.update_reward_summary_table_bokeh_model()
         self.update_healpix_bokeh_model()
         self.update_hovertool_bokeh_model()
         self.update_telescope_marker_bokeh_model()
