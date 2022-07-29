@@ -225,6 +225,7 @@ class SchedulerDisplayApp(SchedulerDisplay):
         self.update_healpix_bokeh_model()
 
     def update_time_display_bokeh_model(self):
+        """Update the value of the displayed time."""
         if "time_selector" in self.bokeh_models:
             self.update_time_selector_bokeh_model()
 
@@ -233,6 +234,29 @@ class SchedulerDisplayApp(SchedulerDisplay):
 
     def update_displayed_value_metadata_bokeh_model(self):
         self.update_tier_selector()
+
+    def _select_survey_from_summary_table(self, attr, old, new):
+        LOGGER.debug("Called select_survey_from_summary_table")
+        selected_index = new[0]
+        tier_name = self.data_sources["reward_summary_table"].data["tier"][
+            selected_index
+        ]
+        survey_name = self.data_sources["reward_summary_table"].data["survey_name"][
+            selected_index
+        ]
+
+        # Update the selectors, and this will run
+        # the callbacks to do all the updates
+        self.bokeh_models["tier_selector"].value = tier_name
+        self.bokeh_models["survey_selector"].value = survey_name
+
+    def make_reward_summary_table(self):
+        super().make_reward_summary_table()
+
+        self.data_sources["reward_summary_table"].selected.on_change(
+            "indices",
+            self._select_survey_from_summary_table,
+        )
 
     def disable_controls(self):
         """Disable all controls.

@@ -867,8 +867,9 @@ class SchedulerDisplay:
             index=range(300),
             columns=["tier", "survey_name", "reward"],
         )
+        self.data_sources["reward_summary_table"] = bokeh.models.ColumnDataSource(df)
         self.bokeh_models["reward_summary_table"] = bokeh.models.DataTable(
-            source=bokeh.models.ColumnDataSource(df),
+            source=self.data_sources["reward_summary_table"],
             columns=[bokeh.models.TableColumn(field=c, title=c) for c in df],
         )
         self.update_reward_summary_table_bokeh_model()
@@ -877,9 +878,9 @@ class SchedulerDisplay:
         LOGGER.info("Updating reward summary table bokeh model")
         if "reward_summary_table" in self.bokeh_models:
             scheduler_summary_df = self.make_scheduler_summary_df()
-            self.bokeh_models[
-                "reward_summary_table"
-            ].source = bokeh.models.ColumnDataSource(scheduler_summary_df)
+            self.bokeh_models["reward_summary_table"].source.data = dict(
+                bokeh.models.ColumnDataSource(scheduler_summary_df).data
+            )
             self.bokeh_models["reward_summary_table"].columns = [
                 bokeh.models.TableColumn(field=c, title=c) for c in scheduler_summary_df
             ]
