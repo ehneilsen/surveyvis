@@ -15,6 +15,7 @@ from surveyvis.plot.SphereMap import (
 from surveyvis.collect import sample_pickle
 
 from surveyvis.plot.scheduler import SchedulerDisplay
+from surveyvis.collect import read_scheduler
 from surveyvis.plot.scheduler import LOGGER, DEFAULT_NSIDE
 
 
@@ -22,7 +23,7 @@ class SchedulerDisplayApp(SchedulerDisplay):
     def make_pickle_entry_box(self):
         """Make the entry box for a file name from which to load state."""
         file_input_box = bokeh.models.TextInput(
-            value=sample_pickle() + " ",
+            value=sample_pickle("auxtel59628.pickle.gz") + " ",
             title="Pickle path:",
         )
 
@@ -385,7 +386,9 @@ class SchedulerDisplayApp(SchedulerDisplay):
 
 
 def make_scheduler_map_figure(
-    scheduler_pickle_fname=None, init_key="AvoidDirectWind", nside=DEFAULT_NSIDE
+    scheduler_pickle_fname="baseline22_start.pickle.gz",
+    init_key="AvoidDirectWind",
+    nside=DEFAULT_NSIDE,
 ):
     """Create a set of bekeh figures showing sky maps for scheduler behavior.
 
@@ -406,11 +409,14 @@ def make_scheduler_map_figure(
         A bokeh figure that can be displayed in a notebook (e.g. with
         ``bokeh.io.show``) or used to create a bokeh app.
     """
-    scheduler_map = SchedulerDisplayApp(nside=nside)
-    figure = scheduler_map.make_figure()
+    if scheduler_pickle_fname is None:
+        scheduler_map = SchedulerDisplayApp(nside=nside)
+    else:
+        scheduler, conditions = read_scheduler(sample_pickle(scheduler_pickle_fname))
+        scheduler.update_conditions(conditions)
+        scheduler_map = SchedulerDisplayApp(nside=nside, scheduler=scheduler)
 
-    if scheduler_pickle_fname is not None:
-        scheduler_map.load(scheduler_pickle_fname)
+    figure = scheduler_map.make_figure()
 
     return figure
 

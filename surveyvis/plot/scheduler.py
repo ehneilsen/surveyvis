@@ -657,25 +657,36 @@ class SchedulerDisplay:
         if "telescope_marker" in self.data_sources:
             self.data_sources["telescope_marker"].data = data
 
-    def make_survey_marker_data_source(self, sphere_map=None):
+    def make_survey_marker_data_source(self, sphere_map=None, max_fields=50):
         """Create a bokeh datasource for the pointings for the current survey.
 
         Parameters
         ----------
         sphere_map: `surveyvis.plot.SphereMap`
             The instance of SphereMap to use to create the data source
+        max_fields: `int`
+            Maximum number of fields to display (none shown if the scheduler
+            has more fields.)
 
         Returns
         -------
         data_source: `bokeh.models.ColumnDataSource`
             The DataSource with the column data.
         """
+        survey = self.scheduler.survey_lists[self.survey_index[0]][self.survey_index[1]]
+        try:
+            ra_name = "ra" if len(survey.ra) <= max_fields else ""
+            decl_name = "dec" if len(survey.dec) <= max_fields else ""
+        except AttributeError:
+            ra_name = ""
+            decl_name = ""
+
         data_source = self._make_marker_data_source(
             sphere_map=sphere_map,
             name="Field",
             source_name="survey",
-            ra_name="ra",
-            decl_name="dec",
+            ra_name=ra_name,
+            decl_name=decl_name,
             source_units="radians",
         )
         return data_source
@@ -848,9 +859,11 @@ class SchedulerDisplay:
 
         def make_survey_row(survey_bfs):
             infeasible_bf = ", ".join(
-                survey_bfs.query("not feasible").basis_function.to_list()
+                survey_bfs.loc[
+                    ~survey_bfs.feasible.astype(bool)
+                ].basis_function.to_list()
             )
-            infeasible = ~np.all(survey_bfs.feasible)
+            infeasible = ~np.all(survey_bfs.feasible.astype(bool))
             reward = infeasible_bf if infeasible else survey_bfs.accum_reward.iloc[-1]
             survey_row = pd.Series({"reward": reward, "infeasible": infeasible})
             return survey_row

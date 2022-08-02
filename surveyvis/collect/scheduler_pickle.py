@@ -90,15 +90,19 @@ def read_scheduler(file_name_or_url=None):
     return scheduler, conditions
 
 
-def sample_pickle():
+def sample_pickle(base_fname="scheduler.pickle.gz"):
     """Return the path of the sample pickle
+
+    Parameters
+    ----------
+    base_fname : `str`
+        The base file name.
 
     Returns
     -------
     fname : `str`
         File name of the sample pickle.
     """
-    base_fname = "scheduler.pickle.gz"
     root_package = __package__.split(".")[0]
 
     try:

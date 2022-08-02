@@ -816,6 +816,7 @@ class SphereMap:
         point : `bokeh.models.ColumnDataSource`
             A data source with point locations, including projected coords.
         """
+
         points_df = pd.DataFrame(points_data)
         x0s, y0s, z0s = hp.ang2vec(points_df.ra, points_df.decl, lonlat=True).T
         xs, ys, zs = self.to_orth_zenith(x0s, y0s, z0s)
@@ -897,9 +898,11 @@ class SphereMap:
         decls = decl if isinstance(decl, Iterable) else [decl]
         if len(ras) > 0:
             glyph_sizes = (
-                glyph_size if isinstance(glyph_size, Iterable) else [glyph_size]
+                glyph_size
+                if isinstance(glyph_size, Iterable)
+                else [glyph_size] * len(ras)
             )
-            names = [name] if isinstance(name, str) else name
+            names = [name] * len(ras) if isinstance(name, str) else name
         else:
             glyph_sizes = np.array([])
             names = np.array([])
