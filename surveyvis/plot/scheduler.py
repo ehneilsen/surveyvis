@@ -28,8 +28,8 @@ from surveyvis.plot.SphereMap import (
 from surveyvis.collect import read_scheduler
 
 DEFAULT_MJD = 60200.2
-DEFAULT_NSIDE = 16
-# DEFAULT_NSIDE = 32
+# DEFAULT_NSIDE = 16
+DEFAULT_NSIDE = 32
 
 
 def make_logger():
@@ -202,7 +202,7 @@ class SchedulerDisplay:
             survey_index=self.survey_index, conditions=self.conditions
         )
         for key in full_healpix_maps:
-            new_key = key.replace(" ", "_").replace(".", "_")
+            new_key = key.replace(" ", "_").replace(".", "_").replace('@', '_')
             values = full_healpix_maps[key]
             if values.shape[0] != hp.nside2npix(self.nside):
                 values[np.isnan(values)] = hp.UNSEEN
