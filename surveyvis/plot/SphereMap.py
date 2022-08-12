@@ -850,31 +850,42 @@ class SphereMap:
         x_hz[invisible] = np.nan
         y_hz[invisible] = np.nan
 
-        points = bokeh.models.ColumnDataSource(
-            data={
-                "name": points_df.name,
-                "ra": points_df.ra.tolist(),
-                "decl": points_df.decl.tolist(),
-                "x_hp": x0s.tolist(),
-                "y_hp": y0s.tolist(),
-                "z_hp": z0s.tolist(),
-                "x_orth": xs.tolist(),
-                "y_orth": ys.tolist(),
-                "z_orth": zs.tolist(),
-                "x_laea": x_laea.tolist(),
-                "y_laea": y_laea.tolist(),
-                "x_moll": x_moll.tolist(),
-                "y_moll": y_moll.tolist(),
-                "x_hz": x_hz.tolist(),
-                "y_hz": y_hz.tolist(),
-                "glyph_size": points_df.glyph_size.tolist(),
-            }
-        )
+        data = {
+            "name": points_df.name,
+            "ra": points_df.ra.tolist(),
+            "decl": points_df.decl.tolist(),
+            "x_hp": x0s.tolist(),
+            "y_hp": y0s.tolist(),
+            "z_hp": z0s.tolist(),
+            "x_orth": xs.tolist(),
+            "y_orth": ys.tolist(),
+            "z_orth": zs.tolist(),
+            "x_laea": x_laea.tolist(),
+            "y_laea": y_laea.tolist(),
+            "x_moll": x_moll.tolist(),
+            "y_moll": y_moll.tolist(),
+            "x_hz": x_hz.tolist(),
+            "y_hz": y_hz.tolist(),
+            "glyph_size": points_df.glyph_size.tolist(),
+        }
+
+        # Add any additional data provided
+        for column_name in points_df.columns:
+            if column_name not in data.keys():
+                data[column_name] = points_df[column_name].to_list()
+
+        points = bokeh.models.ColumnDataSource(data=data)
 
         return points
 
     def make_marker_data_source(
-        self, ra=None, decl=None, name="anonymous", glyph_size=5
+        self,
+        ra=None,
+        decl=None,
+        name="anonymous",
+        glyph_size=5,
+        min_mjd=None,
+        max_mjd=None,
     ):
         """Add one or more circular marker(s) to the map.
 
@@ -888,6 +899,10 @@ class SphereMap:
             Name for the thing marked, by default "anonymous"
         glyph_size : `int` or `Iterable`, optional
             Size of the marker, by default 5
+        min_mjd : `float`
+            Earlist time for which to show the marker
+        max_mjd : `float`
+            Latest time for which to show the marker
 
         Returns
         -------
@@ -906,9 +921,45 @@ class SphereMap:
         else:
             glyph_sizes = np.array([])
             names = np.array([])
-        data_source = self.make_points(
-            {"ra": ras, "decl": decls, "name": names, "glyph_size": glyph_sizes}
-        )
+
+        data = {
+            "ra": ras,
+            "decl": decls,
+            "name": names,
+            "glyph_size": glyph_sizes,
+        }
+
+        if (min_mjd is not None) or (max_mjd is not None):
+            if len(ras) == 0:
+                data["in_mjd_window"] = np.array([])
+            else:
+                data["in_mjd_window"] = [1] * len(ras)
+
+        if min_mjd is not None:
+            if not isinstance(min_mjd, Iterable):
+                min_mjd = [min_mjd]
+            if len(ras) < 1:
+                min_mjd = np.array([])
+
+            data["min_mjd"] = min_mjd
+
+            for marker_index, this_min_mjd in enumerate(min_mjd):
+                if self.mjd < this_min_mjd:
+                    data["in_mjd_window"][marker_index] = 0
+
+        if max_mjd is not None:
+            if not isinstance(max_mjd, Iterable):
+                max_mjd = [max_mjd]
+            if len(ras) < 1:
+                max_mjd = np.array([])
+
+            data["max_mjd"] = max_mjd
+
+            for marker_index, this_max_mjd in enumerate(max_mjd):
+                if self.mjd > this_max_mjd:
+                    data["in_mjd_window"][marker_index] = 0
+
+        data_source = self.make_points(data)
 
         return data_source
 
@@ -1126,6 +1177,8 @@ class SphereMap:
         decl=None,
         name="anonymous",
         glyph_size=5,
+        min_mjd=None,
+        max_mjd=None,
         data_source=None,
         circle_kwargs={},
     ):
@@ -1141,6 +1194,10 @@ class SphereMap:
             Name for the thing marked, by default "anonymous"
         glyph_size : `int` or `Iterable`, optional
             Size of the marker, by default 5
+        min_mjd : `float` or `Iterable`, optional
+            Earliest time for which to show the marker.
+        max_mjd : `float` or `Iterable`, optional
+            Latest time for which to show the marker.
         data_source : `bokeh.models.ColumnDataSource`, optional
             Data source for the marker, None if a new one is to be generated.
             By default, None
@@ -1154,7 +1211,9 @@ class SphereMap:
             A data source with marker locations, including projected coords.
         """
         if data_source is None:
-            data_source = self.make_marker_data_source(ra, decl, name, glyph_size)
+            data_source = self.make_marker_data_source(
+                ra, decl, name, glyph_size, min_mjd, max_mjd
+            )
 
         self.plot.circle(
             x=self.x_col,
@@ -1422,6 +1481,8 @@ class MovingSphereMap(SphereMap):
         decl=None,
         name="anonymous",
         glyph_size=5,
+        min_mjd=None,
+        max_mjd=None,
         data_source=None,
         circle_kwargs={},
     ):
@@ -1437,6 +1498,10 @@ class MovingSphereMap(SphereMap):
             Name for the thing marked, by default "anonymous"
         glyph_size : `int` or `Iterable`, optional
             Size of the marker, by default 5
+        min_mjd : `float` or `Iterable`, optional
+            Earliest time for which to show the marker.
+        max_mjd : `float` or `Iterable`, optional
+            Latest time for which to show the marker.
         data_source : `bokeh.models.ColumnDataSource`, optional
             Data source for the marker, None if a new one is to be generated.
             By default, None
@@ -1450,7 +1515,14 @@ class MovingSphereMap(SphereMap):
             A data source with marker locations, including projected coords.
         """
         data_source = super().add_marker(
-            ra, decl, name, glyph_size, data_source, circle_kwargs
+            ra,
+            decl,
+            name,
+            glyph_size,
+            min_mjd,
+            max_mjd,
+            data_source=data_source,
+            circle_kwargs=circle_kwargs,
         )
         self.set_js_update_func(data_source)
         return data_source

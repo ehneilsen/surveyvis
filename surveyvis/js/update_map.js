@@ -296,6 +296,20 @@ for (let i = 0; i < data['x_hp'].length; i++) {
             }
         }
     }
+
+    if ('in_mjd_window' in data) {
+        data['in_mjd_window'][i] = 1.0
+        if ('min_mjd' in data) {
+            if (mjd < data['min_mjd'][i]) {
+                data['in_mjd_window'][i] = 0.0
+            }
+        }
+        if ('max_mjd' in data) {
+            if (mjd > data['max_mjd'][i]) {
+                data['in_mjd_window'][i] = 0.0
+            }
+        }
+    }
 }
 
 data_source.change.emit()
