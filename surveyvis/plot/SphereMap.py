@@ -944,8 +944,7 @@ class SphereMap:
                 center_az_slider={"value": 0},
                 mjd_slider=self.sliders["mjd"],
                 lat=self.site.latitude,
-                ref_mjd=self.mjd,
-                ref_lst=self.lst,
+                lon=self.site.longitude,
             ),
             code=self.update_js,
         )
@@ -1476,8 +1475,7 @@ class HorizonMap(MovingSphereMap):
                 data_source=data_source,
                 mjd_slider=self.sliders["mjd"],
                 lat=self.site.latitude,
-                ref_mjd=self.mjd,
-                ref_lst=self.lst,
+                lon=self.site.longitude,
             ),
             code=self.update_js,
         )
@@ -1523,8 +1521,7 @@ class ArmillarySphere(MovingSphereMap):
                 center_az_slider=self.sliders["az"],
                 mjd_slider=self.sliders["mjd"],
                 lat=self.site.latitude,
-                ref_mjd=self.mjd,
-                ref_lst=self.lst,
+                lon=self.site.longitude,
             ),
             code=self.update_js,
         )

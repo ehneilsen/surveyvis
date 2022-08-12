@@ -172,17 +172,31 @@ function eqToMollweide(ra, decl, west_right) {
     return xy
 }
 
+function computeLocalSiderealTime(mjd, longitude) {
+    // Computes the Mean Sidereal Time
 
-lat = lat * Math.PI / 180
-ref_lst = ref_lst * Math.PI / 180
+    // Follow Meeus's _Astronomical_Algorithms_ 2nd edition, equation 12.4
+    // Avoid obvious simplifications to make it easier to check the
+    // numbers in the equation exactly.
+    // Meeus follows tho IAU recommendation of 1982.
+    const jd = mjd + 2400000.5
+    const t = (jd - 2451545.0) / 36525.0
+    const theta0 = 280.46061837 + (360.98564736629 * (jd - 2451545.0)) + (0.000387933 * t * t) - (t * t * t / 38710000)
+    const lon_deg = longitude * (180.0 / Math.PI)
+    const lst_deg = ((theta0 + lon_deg) % 360 + 360) % 360
+    const lst = lst_deg * Math.PI / 180.0
+    return lst
+}
 
 const data = data_source.data
 
-/* The should be a close enough approximation of LST for display purposes */
-const lst = ref_lst + ((((mjd_slider.value - ref_mjd) * (366.24/365.24) ) % 1) * 2 * Math.PI)
+lat = lat * Math.PI / 180
+lon = lon * Math.PI / 180
 
 const alt = center_alt_slider.value * Math.PI / 180
 const az = center_az_slider.value * Math.PI / 180
+const mjd = mjd_slider.value
+const lst = computeLocalSiderealTime(mjd, lon)
 
 const eqCoords = horizonToEq(lat, alt, az, lst)
 const ra = eqCoords[0]
