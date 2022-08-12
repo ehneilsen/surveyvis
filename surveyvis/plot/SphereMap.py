@@ -22,7 +22,7 @@ from surveyvis.plot.readjs import read_javascript
 
 from surveyvis.sphere import offset_sep_bear, rotate_cart
 
-ProjSliders = namedtuple("ProjSliders", ["alt", "az", "lst"])
+ProjSliders = namedtuple("ProjSliders", ["alt", "az", "mjd"])
 
 APPROX_COORD_TRANSFORMS = True
 
@@ -36,7 +36,7 @@ class SphereMap:
     alt_limit = 0
     update_js_fname = "update_map.js"
     max_star_glyph_size = 15
-    proj_slider_keys = ["lst"]
+    proj_slider_keys = ["mjd"]
     default_title = ""
     default_graticule_line_kwargs = {"color": "darkgray"}
     default_ecliptic_line_kwargs = {"color": "green"}
@@ -916,13 +916,18 @@ class SphereMap:
         """Add (already defined) sliders to the map."""
         self.sliders = OrderedDict()
 
-    def add_lst_slider(self):
-        """Add a slider to control the LST."""
-        self.sliders["lst"] = bokeh.models.Slider(
-            start=-12, end=36, value=self.lst * 24 / 360, step=np.pi / 180, title="LST"
-        )
+    def add_mjd_slider(self):
+        """Add a slider to control the MJD."""
+        if "mjd" not in self.sliders:
+            self.sliders["mjd"] = bokeh.models.Slider(
+                start=self.mjd - 1,
+                end=self.mjd + 1,
+                value=self.mjd,
+                step=1.0 / (24 * 12),
+                title="MJD",
+            )
 
-        self.figure = bokeh.layouts.column(self.plot, *self.sliders.values())
+            self.figure = bokeh.layouts.column(self.plot, *self.sliders.values())
 
     def set_js_update_func(self, data_source):
         """Set the javascript update functions for each slider
@@ -937,8 +942,10 @@ class SphereMap:
                 data_source=data_source,
                 center_alt_slider={"value": 90},
                 center_az_slider={"value": 0},
-                lst_slider=self.sliders["lst"],
+                mjd_slider=self.sliders["mjd"],
                 lat=self.site.latitude,
+                ref_mjd=self.mjd,
+                ref_lst=self.lst,
             ),
             code=self.update_js,
         )
@@ -1104,7 +1111,7 @@ class SphereMap:
             circle_points = self.make_horizon_circle_points(
                 90, 0, radius=zd, **circle_kwargs
             )
-            if "lst" in self.sliders:
+            if "mjd" in self.sliders:
                 self.set_js_update_func(circle_points)
         else:
             circle_points = data_source
@@ -1453,7 +1460,7 @@ class MovingSphereMap(SphereMap):
 class HorizonMap(MovingSphereMap):
     x_col = "x_hz"
     y_col = "y_hz"
-    proj_slider_keys = ["lst"]
+    proj_slider_keys = ["mjd"]
     default_title = "Horizon"
 
     def set_js_update_func(self, data_source):
@@ -1467,8 +1474,10 @@ class HorizonMap(MovingSphereMap):
         update_func = bokeh.models.CustomJS(
             args=dict(
                 data_source=data_source,
-                lst_slider=self.sliders["lst"],
+                mjd_slider=self.sliders["mjd"],
                 lat=self.site.latitude,
+                ref_mjd=self.mjd,
+                ref_lst=self.lst,
             ),
             code=self.update_js,
         )
@@ -1482,17 +1491,21 @@ class HorizonMap(MovingSphereMap):
     def add_sliders(self, center_alt=90, center_az=0):
         """Add (already defined) sliders to the map."""
         super().add_sliders()
-        self.sliders["lst"] = bokeh.models.Slider(
-            start=-12, end=36, value=self.lst * 24 / 360, step=np.pi / 180, title="LST"
+        self.sliders["mjd"] = bokeh.models.Slider(
+            start=self.mjd - 1,
+            end=self.mjd + 1,
+            value=self.mjd,
+            step=1.0 / (24 * 60),
+            title="MJD",
         )
 
-        self.figure = bokeh.layouts.column(self.plot, self.sliders["lst"])
+        self.figure = bokeh.layouts.column(self.plot, self.sliders["mjd"])
 
 
 class ArmillarySphere(MovingSphereMap):
     x_col = "x_orth"
     y_col = "y_orth"
-    proj_slider_keys = ["alt", "az", "lst"]
+    proj_slider_keys = ["alt", "az", "mjd"]
     default_title = "Armillary Sphere"
 
     def set_js_update_func(self, data_source):
@@ -1508,8 +1521,10 @@ class ArmillarySphere(MovingSphereMap):
                 data_source=data_source,
                 center_alt_slider=self.sliders["alt"],
                 center_az_slider=self.sliders["az"],
-                lst_slider=self.sliders["lst"],
+                mjd_slider=self.sliders["mjd"],
                 lat=self.site.latitude,
+                ref_mjd=self.mjd,
+                ref_lst=self.lst,
             ),
             code=self.update_js,
         )
@@ -1533,12 +1548,16 @@ class ArmillarySphere(MovingSphereMap):
         self.sliders["az"] = bokeh.models.Slider(
             start=-90, end=360, value=center_az, step=np.pi / 180, title="center Az"
         )
-        self.sliders["lst"] = bokeh.models.Slider(
-            start=-12, end=36, value=self.lst * 24 / 360, step=np.pi / 180, title="LST"
+        self.sliders["mjd"] = bokeh.models.Slider(
+            start=self.mjd - 1,
+            end=self.mjd + 1,
+            value=self.mjd,
+            step=1.0 / (24 * 60),
+            title="MJD",
         )
 
         self.figure = bokeh.layouts.column(
-            self.plot, self.sliders["alt"], self.sliders["az"], self.sliders["lst"]
+            self.plot, self.sliders["alt"], self.sliders["az"], self.sliders["mjd"]
         )
 
 

@@ -202,7 +202,7 @@ class SchedulerDisplay:
             survey_index=self.survey_index, conditions=self.conditions
         )
         for key in full_healpix_maps:
-            new_key = key.replace(" ", "_").replace(".", "_").replace('@', '_')
+            new_key = key.replace(" ", "_").replace(".", "_").replace("@", "_")
             values = full_healpix_maps[key]
             if values.shape[0] != hp.nside2npix(self.nside):
                 values[np.isnan(values)] = hp.UNSEEN
@@ -336,9 +336,9 @@ class SchedulerDisplay:
             sphere_map.mjd = self.mjd
 
         if "armillary_sphere" in self.sphere_maps:
-            self.sphere_maps["armillary_sphere"].sliders["lst"].value = (
-                self.sphere_maps["armillary_sphere"].lst * 24.0 / 360.0
-            )
+            self.sphere_maps["armillary_sphere"].sliders[
+                "mjd"
+            ].value = self.sphere_maps["armillary_sphere"].mjd
 
         LOGGER.info("Finished updating conditions")
 
@@ -913,10 +913,10 @@ class SchedulerDisplay:
         self.bokeh_models["az_slider"] = self.sphere_maps["armillary_sphere"].sliders[
             "az"
         ]
-        self.bokeh_models["lst_slider"] = self.sphere_maps["armillary_sphere"].sliders[
-            "lst"
+        self.bokeh_models["mjd_slider"] = self.sphere_maps["armillary_sphere"].sliders[
+            "mjd"
         ]
-        self.bokeh_models["lst_slider"].visible = False
+        self.bokeh_models["mjd_slider"].visible = False
         self.make_sphere_map(
             "planisphere",
             Planisphere,

@@ -174,10 +174,13 @@ function eqToMollweide(ra, decl, west_right) {
 
 
 lat = lat * Math.PI / 180
-// const lon = -70.749417 * Math.PI/180 
+ref_lst = ref_lst * Math.PI / 180
 
 const data = data_source.data
-const lst = lst_slider.value * Math.PI / 12
+
+/* The should be a close enough approximation of LST for display purposes */
+const lst = ref_lst + ((((mjd_slider.value - ref_mjd) * (366.24/365.24) ) % 1) * 2 * Math.PI)
+
 const alt = center_alt_slider.value * Math.PI / 180
 const az = center_az_slider.value * Math.PI / 180
 

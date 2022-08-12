@@ -73,7 +73,7 @@ class SchedulerDisplayApp(SchedulerDisplay):
         self.update_sun_marker_bokeh_model()
         self.update_survey_marker_bokeh_model()
         self.update_chosen_survey_bokeh_model()
-        self.update_time_selector_bokeh_model()
+        self.update_mjd_slider_bokeh_model()
         self.update_time_input_box_bokeh_model()
 
     def make_time_selector(self):
@@ -113,6 +113,37 @@ class SchedulerDisplayApp(SchedulerDisplay):
             self.bokeh_models["time_selector"].start = self.conditions.sun_n12_setting
             self.bokeh_models["time_selector"].end = self.conditions.sun_n12_rising
             self.bokeh_models["time_selector"].value = self.conditions.mjd
+
+    def add_mjd_slider_callback(self):
+        """Create the mjd slider bokeh model."""
+        mjd_slider = self.bokeh_models["mjd_slider"]
+
+        def switch_time(attrname, old, new):
+            if mjd_slider.document is None:
+                # If we don't have access to the document, we can't disable
+                # the controls, so don't try.
+                self.mjd = new
+            else:
+                # To disable controls as the time is being updated, we need to
+                # separate the callback so it happens in two event loop ticks:
+                # the first tick disables the controls, the next one
+                # actually updates the MJD and then re-enables the controls.
+                def do_switch_time():
+                    self.mjd = new
+                    self.enable_controls()
+
+                self.disable_controls()
+                mjd_slider.document.add_next_tick_callback(do_switch_time)
+
+        mjd_slider.on_change("value_throttled", switch_time)
+        self.update_time_selector_bokeh_model()
+
+    def update_mjd_slider_bokeh_model(self):
+        """Update the time selector limits and value to match the date."""
+        if "mjd_slider" in self.bokeh_models:
+            self.bokeh_models["mjd_slider"].start = self.conditions.sun_n12_setting
+            self.bokeh_models["mjd_slider"].end = self.conditions.sun_n12_rising
+            self.bokeh_models["mjd_slider"].value = self.conditions.mjd
 
     def make_time_input_box(self):
         """Create the time entry box bokeh model."""
@@ -227,8 +258,8 @@ class SchedulerDisplayApp(SchedulerDisplay):
 
     def update_time_display_bokeh_model(self):
         """Update the value of the displayed time."""
-        if "time_selector" in self.bokeh_models:
-            self.update_time_selector_bokeh_model()
+        if "mjd" in self.sliders:
+            self.update_mjd_slider_bokeh_model()
 
         if "time_input_box" in self.bokeh_models:
             self.update_time_input_box_bokeh_model()
@@ -296,10 +327,10 @@ class SchedulerDisplayApp(SchedulerDisplay):
         self.bokeh_models["az_slider"] = self.sphere_maps["armillary_sphere"].sliders[
             "az"
         ]
-        self.bokeh_models["lst_slider"] = self.sphere_maps["armillary_sphere"].sliders[
-            "lst"
+        self.bokeh_models["mjd_slider"] = self.sphere_maps["armillary_sphere"].sliders[
+            "mjd"
         ]
-        self.bokeh_models["lst_slider"].visible = False
+        # self.bokeh_models["mjd_slider"].visible = False
         self.make_sphere_map(
             "planisphere",
             Planisphere,
@@ -342,7 +373,9 @@ class SchedulerDisplayApp(SchedulerDisplay):
         self.make_survey_selector()
         self.make_tier_selector()
         self.make_pickle_entry_box()
-        self.make_time_selector()
+
+        # slider was created by SphereMap
+        self.add_mjd_slider_callback()
 
         arm_controls = [
             self.bokeh_models["alt_slider"],
@@ -354,10 +387,9 @@ class SchedulerDisplayApp(SchedulerDisplay):
         if self.observatory is not None:
             self.make_time_input_box()
             controls.append(self.bokeh_models["time_input_box"])
-            controls.append(self.bokeh_models["time_selector"])
 
         controls += [
-            self.bokeh_models["lst_slider"],
+            self.bokeh_models["mjd_slider"],
             self.bokeh_models["tier_selector"],
             self.bokeh_models["survey_selector"],
             self.bokeh_models["value_selector"],
