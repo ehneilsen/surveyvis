@@ -769,6 +769,7 @@ class SchedulerDisplay:
         self.bokeh_models["hover_tool"].tooltips = tooltips
 
     def make_reward_table(self):
+        """Create the bokeh model for a table of rewards."""
         # Bokeh's DataTable doesn't like to expand to accommodate extra rows,
         # so create a dummy with lots of rows initially.
         df = pd.DataFrame(
@@ -782,6 +783,7 @@ class SchedulerDisplay:
         )
 
     def update_reward_table_bokeh_model(self):
+        """Update the bokeh model for the table of rewards."""
         if "reward_table" in self.bokeh_models:
             reward_df = self.scheduler.survey_lists[self.survey_index[0]][
                 self.survey_index[1]
@@ -794,11 +796,13 @@ class SchedulerDisplay:
             ]
 
     def make_chosen_survey(self):
+        """Create the bokeh model for text showing the chosen survey."""
         self.bokeh_models["chosen_survey"] = bokeh.models.Div(
             text="<p>No chosen survey</p>"
         )
 
     def update_chosen_survey_bokeh_model(self):
+        """Update the bokeh model for text showing the chosen survey."""
         if "chosen_survey" in self.bokeh_models:
             tier = f"tier {self.scheduler.survey_index[0]}"
             survey = self.scheduler.survey_lists[self.scheduler.survey_index[0]][
@@ -809,11 +813,13 @@ class SchedulerDisplay:
             ].text = f"<p>Chosen survey: {tier}, {survey}</p>"
 
     def make_displayed_value_metadata(self):
+        """Create the bokeh model specifying what values are displayed."""
         self.bokeh_models["displayed_value_metadata"] = bokeh.models.Div(
             text="<p>No displayed values</p>"
         )
 
     def update_displayed_value_metadata_bokeh_model(self):
+        """Update the bokeh model specifying what values are displayed."""
         if "displayed_value_metadata" in self.bokeh_models:
             tier = f"tier {self.survey_index[0]}"
             survey = self.scheduler.survey_lists[self.survey_index[0]][
@@ -824,9 +830,11 @@ class SchedulerDisplay:
             ].text = f"<p>Displayed value: {self.map_key} from {tier}, {survey}</p>"
 
     def make_time_display(self):
+        """Create the bokeh model showing what time is being represented."""
         self.bokeh_models["time_display"] = bokeh.models.Div(text="<p>No time.</p>")
 
     def update_time_display_bokeh_model(self):
+        """Update the bokeh model showing what time is being represented."""
         iso_time = Time(self.mjd, format="mjd", scale="utc").iso
         if "time_display" in self.bokeh_models:
             self.bokeh_models["time_display"].text = f"<p>{iso_time}</p>"
@@ -873,6 +881,7 @@ class SchedulerDisplay:
         return survey_df["reward"].reset_index()
 
     def make_reward_summary_table(self):
+        """Create the bokeh model of the table of rewards."""
         # Bokeh's DataTable doesn't like to expand to accommodate extra rows,
         # so create a dummy with lots of rows initially.
         df = pd.DataFrame(
@@ -888,6 +897,7 @@ class SchedulerDisplay:
         self.update_reward_summary_table_bokeh_model()
 
     def update_reward_summary_table_bokeh_model(self):
+        """Update the bokeh model of the table of rewards."""
         LOGGER.info("Updating reward summary table bokeh model")
         if "reward_summary_table" in self.bokeh_models:
             scheduler_summary_df = self.make_scheduler_summary_df()
@@ -899,6 +909,14 @@ class SchedulerDisplay:
             ]
 
     def make_figure(self):
+        """Create a bokeh figures showing sky maps for scheduler behavior.
+
+        Returns
+        -------
+        fig : `bokeh.models.layouts.LayoutDOM`
+            A bokeh figure that can be displayed in a notebook (e.g. with
+            ``bokeh.io.show``) or used to create a bokeh app.
+        """
         self.make_sphere_map(
             "armillary_sphere",
             ArmillarySphere,

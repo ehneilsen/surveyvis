@@ -313,6 +313,14 @@ class SchedulerDisplayApp(SchedulerDisplay):
                 pass
 
     def make_figure(self):
+        """Create a bokeh figures showing sky maps for scheduler behavior.
+
+        Returns
+        -------
+        fig : `bokeh.models.layouts.LayoutDOM`
+            A bokeh figure that can be displayed in a notebook (e.g. with
+            ``bokeh.io.show``) or used to create a bokeh app.
+        """
         self.make_sphere_map(
             "armillary_sphere",
             ArmillarySphere,

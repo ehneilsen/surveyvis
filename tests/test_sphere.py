@@ -30,6 +30,12 @@ class test_sphere(unittest.TestCase):
             vec2 = _random_point_on_sphere(rng)
             ra, decl = hp.vec2ang(np.array([vec1, vec2]), lonlat=True)
 
+            # Make sure at least one point is near each pole
+            if i == 0:
+                decl[0] = np.degrees(np.arccos(1.23e-13))
+            elif i == 1:
+                decl[0] = np.degrees(-1 * np.arccos(2.45e-14))
+
             coords = SkyCoord(ra, decl, unit="deg")
             separation = coords[0].separation(coords[1]).deg
             bearing = coords[0].position_angle(coords[1]).deg

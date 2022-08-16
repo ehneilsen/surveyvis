@@ -4,6 +4,7 @@ from pathlib import Path
 import bokeh.plotting
 import bokeh.io
 from surveyvis.app.sched_maps import SchedulerDisplayApp
+from surveyvis.collect import sample_pickle
 
 NSIDE = 8
 
@@ -11,7 +12,13 @@ NSIDE = 8
 class test_sched_maps(unittest.TestCase):
     def test_sched_maps(self):
         scheduler_app = SchedulerDisplayApp(nside=NSIDE)
+
         render_figure(scheduler_app)
+
+        scheduler_app.bokeh_models["file_input_box"].value = sample_pickle(
+            "baseline22_start.pickle.gz"
+        )
+        scheduler_app.disable_controls()
 
 
 def render_figure(scheduler_app):

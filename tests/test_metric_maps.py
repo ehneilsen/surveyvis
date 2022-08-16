@@ -3,7 +3,8 @@ from tempfile import TemporaryDirectory
 from pathlib import Path
 import bokeh.plotting
 import bokeh.io
-from surveyvis.app.metric_maps import make_metric_figure
+import bokeh.document
+from surveyvis.app.metric_maps import make_metric_figure, add_metric_app
 
 
 class test_metric_maps(unittest.TestCase):
@@ -16,6 +17,10 @@ class test_metric_maps(unittest.TestCase):
             bokeh.plotting.save(fig)
             saved_png_fname = out_path.joinpath("test_fig.png")
             bokeh.io.export_png(fig, filename=saved_png_fname)
+
+    def test_add_metric_app(self):
+        doc = bokeh.document.document.Document()
+        add_metric_app(doc)
 
 
 if __name__ == "__main__":
